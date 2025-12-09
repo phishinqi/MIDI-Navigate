@@ -40,17 +40,14 @@ const useStore = create(
         growSpeed: 3.0,
         shrinkSpeed: 0.08,
 
-        // 布局与外观控制
-        noteAreaScale: 0.8,     // 垂直高度缩放 (0.3 - 1.0)
-        noteAreaOffsetY: 0,     // 垂直偏移像素
-
-        // 水平与时间控制
-        horizontalZoom: 1.0,    // 水平缩放/时间拉伸 (0.5 - 2.0)
-        noteHeight: 6,          // 音符厚度像素 (2 - 20)
-
-        // [新增] 翻页模式: 'wipe' (覆写) | 'fade' (淡出)
+         // [新增] 网格显示控制，默认开启
+        showGrid: true,
+        noteAreaScale: 0.8,
+        noteAreaOffsetY: 0,
+        horizontalZoom: 1.0,
+        noteHeight: 6,
         pageTurnMode: 'wipe',
-      },
+    },
 
       setP5Settings: (settings) => set((state) => ({
         p5Settings: { ...state.p5Settings, ...settings }

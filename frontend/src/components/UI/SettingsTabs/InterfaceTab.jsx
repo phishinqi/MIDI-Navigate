@@ -1,3 +1,4 @@
+// frontend/src/components/InterfaceTab.js
 import React, { useRef } from 'react';
 import useStore from '@/store/useStore';
 import {
@@ -5,13 +6,14 @@ import {
   Volume2, VolumeX, Monitor, Box, MoveHorizontal, MoveVertical,
   MousePointer2, Video, ArrowRightLeft, ScanLine, GripVertical,
   Server, Cpu, Download, Upload, Activity, Wind, Maximize, ArrowUpDown,
-  Scaling, AlignJustify, ArrowRight // Added for Page Turn Mode
+  Scaling, AlignJustify, ArrowRight, Grid3X3 // [Added] Grid Icon
 } from 'lucide-react';
 import { audioEngine } from '@/audio/AudioEngine';
 import * as Slider from '@radix-ui/react-slider';
 import * as Switch from '@radix-ui/react-switch';
 
 const InterfaceTab = () => {
+  // --- Store Access ---
   const viewSettings = useStore(state => state.viewSettings);
   const setViewSettings = useStore(state => state.setViewSettings);
   const renderEngine = useStore(state => state.renderEngine);
@@ -54,16 +56,24 @@ const InterfaceTab = () => {
   const toggleAnalysisWidget = useStore(state => state.toggleAnalysisWidget);
 
   const fileInputRef = useRef(null);
+
+  // Color Palette
   const colors = ['#040405', '#1a1a1a', '#2d1b2e', '#0f172a', '#f5f5f4', '#e2e8f0', '#E0F2FE', '#FAE8FF', '#FEF9C3', '#DCFCE7'];
 
-  // Default Fallback - 包含 pageTurnMode
+  // --- Default Fallback with Safe Guards ---
   const currentP5Settings = p5Settings || {
-    showCursor: true, growSpeed: 3.0, shrinkSpeed: 0.08,
-    noteAreaScale: 0.8, noteAreaOffsetY: 0,
-    horizontalZoom: 1.0, noteHeight: 6,
-    pageTurnMode: 'wipe' // 默认值
+    showCursor: true,
+    showGrid: true, // 默认开启网格
+    growSpeed: 3.0,
+    shrinkSpeed: 0.08,
+    noteAreaScale: 0.8,
+    noteAreaOffsetY: 0,
+    horizontalZoom: 1.0,
+    noteHeight: 6,
+    pageTurnMode: 'wipe'
   };
 
+  // --- Handlers ---
   const handleMidiOutputChange = (e) => {
     const val = e.target.value;
     setSelectedMidiOutput(val);
@@ -73,7 +83,7 @@ const InterfaceTab = () => {
   const handleExportConfig = () => {
     const state = useStore.getState();
     const config = {
-      version: 5,
+      version: 8,
       timestamp: new Date().toISOString(),
       settings: {
         backgroundColor: state.backgroundColor,
@@ -124,6 +134,7 @@ const InterfaceTab = () => {
     e.target.value = '';
   };
 
+  // --- UI Helpers ---
   const toggleBgOn = 'bg-midi-accent';
   const toggleBgOff = 'bg-white/10';
   const toggleDot = 'bg-white shadow-sm';
@@ -133,7 +144,7 @@ const InterfaceTab = () => {
   return (
     <div className="flex-1 p-6 space-y-8 overflow-y-auto">
 
-      {/* Render Engine Selection */}
+      {/* 1. Render Engine Selection */}
       <div className="space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Render Engine</h3>
         <div className="flex gap-2 p-1 bg-black/20 rounded-lg">
@@ -142,7 +153,7 @@ const InterfaceTab = () => {
         </div>
       </div>
 
-      {/* Viewport & Playback (THREE.JS ONLY) */}
+      {/* 2. Viewport & Playback (THREE.JS ONLY) */}
       {renderEngine === 'three' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
           <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Viewport (Three.js)</h3>
@@ -171,18 +182,19 @@ const InterfaceTab = () => {
         </div>
       )}
 
-      {/* P5 Settings (P5.JS ONLY) */}
+      {/* 3. P5 Settings (P5.JS ONLY) */}
       {renderEngine === 'p5' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
           <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Visualization (p5.js)</h3>
 
           <div className="space-y-4 bg-white/5 p-3 rounded-lg">
-             {/* [新增] Page Turn Mode Control */}
+
+             {/* Page Turn Mode Control */}
              <div className="flex items-center justify-between pb-2 border-b border-white/5 mb-2">
                 <div className="flex items-center gap-2 opacity-80"><ArrowRight size={14} /><span className="text-xs font-bold">Page Turn Mode</span></div>
                 <div className="flex bg-black/20 rounded p-1">
-                    <button onClick={() => setP5Settings({ pageTurnMode: 'fade' })} className={`px-3 py-1 text-[10px] font-bold rounded transition-all ${currentP5Settings.pageTurnMode === 'fade' ? 'bg-white text-black shadow' : 'text-white/40 hover:text-white'}`}>Fade</button>
-                    <button onClick={() => setP5Settings({ pageTurnMode: 'wipe' })} className={`px-3 py-1 text-[10px] font-bold rounded transition-all ${currentP5Settings.pageTurnMode === 'wipe' ? 'bg-midi-accent text-black shadow' : 'text-white/40 hover:text-white'}`}>Wipe</button>
+                    <button onClick={() => setP5Settings({ pageTurnMode: 'fade' })} className={`px-3 py-1 text-[10px] font-bold rounded transition-all flex items-center gap-1 ${currentP5Settings.pageTurnMode === 'fade' ? 'bg-white text-black shadow' : 'text-white/40 hover:text-white'}`}><Wind size={10} /> Fade</button>
+                    <button onClick={() => setP5Settings({ pageTurnMode: 'wipe' })} className={`px-3 py-1 text-[10px] font-bold rounded transition-all flex items-center gap-1 ${currentP5Settings.pageTurnMode === 'wipe' ? 'bg-midi-accent text-black shadow' : 'text-white/40 hover:text-white'}`}><ScanLine size={10} /> Wipe</button>
                 </div>
              </div>
 
@@ -216,15 +228,31 @@ const InterfaceTab = () => {
              </div>
 
              {/* Toggles */}
-             <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-2">
-                <div className="flex items-center gap-2 opacity-80"><ScanLine size={14} /><span className="text-xs font-bold">Show Playhead</span></div>
-                <Switch.Root className={`w-8 h-4 rounded-full relative transition-colors ${currentP5Settings.showCursor !== false ? toggleBgOn : toggleBgOff}`} checked={currentP5Settings.showCursor !== false} onCheckedChange={(c) => setP5Settings({ showCursor: c })}><Switch.Thumb className={`block w-3 h-3 bg-white rounded-full shadow transition-transform translate-x-0.5 ${currentP5Settings.showCursor !== false ? 'translate-x-[18px]' : ''}`} /></Switch.Root>
+             <div className="flex flex-col gap-2 pt-2 border-t border-white/5 mt-2">
+                {/* Show Playhead */}
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-2 opacity-80"><ScanLine size={14} /><span className="text-xs font-bold">Show Playhead</span></div>
+                   <Switch.Root className={`w-8 h-4 rounded-full relative transition-colors ${currentP5Settings.showCursor !== false ? toggleBgOn : toggleBgOff}`} checked={currentP5Settings.showCursor !== false} onCheckedChange={(c) => setP5Settings({ showCursor: c })}><Switch.Thumb className={`block w-3 h-3 bg-white rounded-full shadow transition-transform translate-x-0.5 ${currentP5Settings.showCursor !== false ? 'translate-x-[18px]' : ''}`} /></Switch.Root>
+                </div>
+
+                {/* Show Background Grid */}
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-2 opacity-80"><Grid3X3 size={14} /><span className="text-xs font-bold">Show Background Grid</span></div>
+                   <Switch.Root
+                     className={`w-8 h-4 rounded-full relative transition-colors ${currentP5Settings.showGrid !== false ? toggleBgOn : toggleBgOff}`}
+                     checked={currentP5Settings.showGrid !== false}
+                     onCheckedChange={(c) => setP5Settings({ showGrid: c })}
+                   >
+                     <Switch.Thumb className={`block w-3 h-3 bg-white rounded-full shadow transition-transform translate-x-0.5 ${currentP5Settings.showGrid !== false ? 'translate-x-[18px]' : ''}`} />
+                   </Switch.Root>
+                </div>
              </div>
+
           </div>
         </div>
       )}
 
-      {/* Canvas Colors */}
+      {/* 4. Canvas Colors */}
       <div className="space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Canvas Appearance</h3>
         <div className="flex gap-3 flex-wrap">
@@ -233,7 +261,7 @@ const InterfaceTab = () => {
         </div>
       </div>
 
-      {/* Audio IO */}
+      {/* 5. Audio IO */}
       <div className="space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Audio & MIDI I/O</h3>
         <div className="space-y-3">
@@ -248,7 +276,7 @@ const InterfaceTab = () => {
         </div>
       </div>
 
-      {/* Analysis Engine */}
+      {/* 6. Analysis Engine */}
       <div className="space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Analysis Engine</h3>
         <div className="flex flex-col gap-3 bg-white/5 p-3 rounded-lg border border-white/5">
@@ -278,14 +306,14 @@ const InterfaceTab = () => {
         </div>
       </div>
 
-      {/* Visuals */}
+      {/* 7. Visuals */}
       <div className="space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Visuals</h3>
         <div className="flex items-center justify-between p-3 rounded-lg border border-transparent hover:bg-white/5 transition-all cursor-pointer" onClick={toggleGlow}><div className="flex items-center gap-3"><Zap size={18} className="opacity-50" /><span className="text-sm font-bold">Note Glow</span></div><div className={`w-8 h-4 rounded-full relative transition-colors ${isGlowEnabled ? toggleBgOn : toggleBgOff}`}><div className={`absolute top-0.5 w-3 h-3 rounded-full shadow-sm transition-all ${toggleDot} ${isGlowEnabled ? toggleClassOn : toggleClassOff}`} /></div></div>
         <div className="flex items-center justify-between p-3 rounded-lg border border-transparent hover:bg-white/5 transition-all"><div className="flex items-center gap-3"><Sun size={18} className="opacity-50" /><span className="text-sm font-bold">UI Text Color</span></div><div className="flex items-center gap-2"><button onClick={toggleAutoTextContrast} className={`px-3 py-1 rounded text-xs font-bold border transition-all ${autoTextContrast ? 'bg-midi-accent text-black border-midi-accent' : 'border-white/20 text-white/50 hover:text-white'}`}>Auto</button>{!autoTextContrast && (<div className="flex bg-white/10 rounded p-0.5 border border-white/5"><button onClick={() => forceDarkText && toggleForceDarkText()} className={`p-1.5 rounded transition-all ${!forceDarkText ? 'bg-white/20 text-white shadow' : 'text-white/30 hover:text-white'}`}><Moon size={14} /></button><button onClick={() => !forceDarkText && toggleForceDarkText()} className={`p-1.5 rounded transition-all ${forceDarkText ? 'bg-white text-black shadow' : 'text-white/30 hover:text-white'}`}><Sun size={14} /></button></div>)}</div></div>
       </div>
 
-      {/* Widgets */}
+      {/* 8. Widgets */}
       <div className="space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Widgets</h3>
         {[{ label: 'Timeline & Controls', state: showPlayerWidget, toggle: togglePlayerWidget, icon: Layout }, { label: 'Analysis HUD', state: showAnalysisWidget, toggle: toggleAnalysisWidget, icon: Sliders }].map((item, i) => (
@@ -293,7 +321,7 @@ const InterfaceTab = () => {
         ))}
       </div>
 
-      {/* System Config */}
+      {/* 9. System Config */}
       <div className="space-y-4 pt-4 border-t border-white/5">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">System</h3>
         <div className="grid grid-cols-2 gap-4">

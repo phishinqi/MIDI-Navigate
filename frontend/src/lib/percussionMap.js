@@ -1,37 +1,52 @@
 // frontend/src/lib/percussionMap.js
 
 export const GM_DRUM_MAP = {
-  // Kick (底鼓) -> 暖色/珊瑚红 (Coral / Warm Red)
-  // 原: #FF0000 -> 现: #FF6B6B (更柔和的红)
-  35: { label: "Acoustic Bass Drum", color: "#FF6B6B", shapeID: 0 },
-  36: { label: "Bass Drum 1", color: "#FF5252", shapeID: 0 },
+  // --- 核心节奏组 (Core) ---
 
-  // Snare (军鼓) -> 冷白/青灰 (Cyan White)
-  // 原: #FFFFFF -> 现: #E0F7FA (带一点点蓝的白，不刺眼)
-  38: { label: "Acoustic Snare", color: "#E0F7FA", shapeID: 1 },
-  40: { label: "Electric Snare", color: "#B2EBF2", shapeID: 1 },
-  37: { label: "Side Stick", color: "#FFD54F", shapeID: 2 }, // SideStick 用琥珀色
+  // Kick (底鼓) -> 能量红 (Energy Red)
+  // 稍微带一点橙色，避免纯红在某些屏幕上溢出
+  35: { label: "Acoustic Bass Drum", color: "#FF3D00", shapeID: 0 },
+  36: { label: "Bass Drum 1",        color: "#FF1744", shapeID: 0 },
 
-  // Hats (镲片) -> 荧光绿/薄荷绿 (Mint / Neon Green)
-  // 原: #00FF00 -> 现: #69F0AE (薄荷绿)
-  42: { label: "Closed Hi Hat", color: "#69F0AE", shapeID: 3 },
-  44: { label: "Pedal Hi-Hat", color: "#00E676", shapeID: 3 },
-  46: { label: "Open Hi-Hat", color: "#B9F6CA", shapeID: 3 },
+  // Snare (军鼓) -> 激光白/冰蓝 (Laser Cyan)
+  // 这是视觉中最亮的点，使用接近白色的青
+  38: { label: "Acoustic Snare",     color: "#E0FFFF", shapeID: 1 },
+  40: { label: "Electric Snare",     color: "#84FFFF", shapeID: 1 },
+  37: { label: "Side Stick",         color: "#FFD740", shapeID: 2 }, // 琥珀色，清脆
 
-  // Toms (通鼓) -> 靛蓝/紫罗兰 (Indigo / Violet)
-  // 原: #0000FF -> 现: #536DFE (更高级的蓝)
-  41: { label: "Low Floor Tom", color: "#536DFE", shapeID: 2 },
-  43: { label: "High Floor Tom", color: "#7C4DFF", shapeID: 2 }, // 偏紫
-  45: { label: "Low Tom", color: "#448AFF", shapeID: 2 },
-  47: { label: "Low-Mid Tom", color: "#40C4FF", shapeID: 2 }, // 偏青
+  // Clap -> 骚粉色 (Hot Pink)
+  // 必须非常显眼，区别于 Snare
+  39: { label: "Hand Clap",          color: "#FF00FF", shapeID: 1 },
 
-  // Cymbals (吊镲) -> 金色/橙色 (Gold / Orange)
-  // 原: #FFA500 -> 现: #FFAB40
-  49: { label: "Crash Cymbal 1", color: "#FFAB40", shapeID: 3 },
-  51: { label: "Ride Cymbal 1", color: "#E040FB", shapeID: 3 }, // Ride 用紫色区分
-  39: { label: "Hand Clap", color: "#FF4081", shapeID: 1 }, // Clap 用粉色
+  // --- 高频修饰组 (Top) ---
+
+  // Hats (镲片) -> 赛博绿 (Cyber Green)
+  // 使用荧光感最强的绿
+  42: { label: "Closed Hi Hat",      color: "#00E676", shapeID: 3 },
+  44: { label: "Pedal Hi-Hat",       color: "#69F0AE", shapeID: 3 },
+  46: { label: "Open Hi-Hat",        color: "#B2FF59", shapeID: 3 }, // 带点黄的绿
+
+  // --- 氛围组 (Atmosphere) ---
+
+  // Toms (通鼓) -> 深空紫/蓝 (Deep Space)
+  // 这一组颜色可以稍微暗一点，作为背景烘托
+  41: { label: "Low Floor Tom",      color: "#304FFE", shapeID: 2 }, // 深蓝
+  43: { label: "High Floor Tom",     color: "#6200EA", shapeID: 2 }, // 深紫
+  45: { label: "Low Tom",            color: "#2962FF", shapeID: 2 },
+  47: { label: "Low-Mid Tom",        color: "#00B0FF", shapeID: 2 }, // 亮天蓝
+
+  // Cymbals (吊镲) -> 辉煌金 (Glory Gold)
+  49: { label: "Crash Cymbal 1",     color: "#FFAB00", shapeID: 3 },
+  57: { label: "Crash Cymbal 2",     color: "#FFD600", shapeID: 3 },
+  51: { label: "Ride Cymbal 1",      color: "#AA00FF", shapeID: 3 }, // Ride 经常用紫色
+  59: { label: "Ride Cymbal 2",      color: "#D500F9", shapeID: 3 },
+
+  // Percussion (其他打击乐) -> 青柠/其他
+  54: { label: "Tambourine",         color: "#76FF03", shapeID: 4 },
+  56: { label: "Cowbell",            color: "#FFFF00", shapeID: 4 },
 };
 
 export const getDrumVisuals = (midi) => {
-    return GM_DRUM_MAP[midi] || { label: "Unknown", color: "#e68bc7", shapeID: 0 }; // 默认蓝灰色
+    // 默认颜色：一种中性的深灰色，避免未映射的音符太抢眼
+    return GM_DRUM_MAP[midi] || { label: "Unknown", color: "#607D8B", shapeID: 0 };
 };

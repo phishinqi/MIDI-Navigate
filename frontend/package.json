@@ -14,7 +14,7 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-switch": "^1.0.3",
     "@react-three/drei": "^9.108.0",
-    "@react-three/fiber": "^8.16.8",
+    "@react-three/fiber": "^8.18.0",
     "@react-three/postprocessing": "^2.16.2",
     "@tonaljs/tonal": "^4.10.0",
     "@tonejs/midi": "^2.0.28",
