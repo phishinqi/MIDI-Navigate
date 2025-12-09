@@ -114,10 +114,7 @@ export const getBarInfoAtTime = (measures, time) => {
 };
 
 /**
- * [UPDATED] cacheNotesForBar (旋律音符)
- * 1. 过滤可见性 (眼睛图标)
- * 2. 如果网格开启，自动隐藏鼓轨道
- * 3. 颜色同步 HSL
+ * [UPDATED] cacheNotesForBar
  */
 export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, percussionSettings) => {
   const notes = [];
@@ -129,10 +126,8 @@ export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, perc
   const barEnd = measure.endTime;
 
   midi.tracks.forEach((track, tIdx) => {
-    // 1. 基础过滤：如果眼睛关了，这里就不渲染
     if (visibleTracks && !visibleTracks.includes(tIdx)) return;
 
-    // 2. 自动隐藏逻辑：如果网格开启，且当前是鼓轨，则强制隐藏（不渲染矩形）
     if (percussionSettings?.enabled) {
         const name = (track.name || "").toLowerCase();
         const inst = track.instrument || {};
@@ -145,7 +140,6 @@ export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, perc
         if (isDrum) return;
     }
 
-    // 3. 颜色计算 (HSL)
     const hue = getTrackHue(tIdx);
     p.colorMode(p.HSL, 360, 100, 100);
     const col = p.color(hue, 70, 60);
@@ -178,20 +172,12 @@ export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, perc
   return notes;
 };
 
-/**
- * [FIXED] getDrumStepsForMeasure (打击乐网格数据)
- * 修复：移除 visibleTracks 过滤。
- * 只要 MIDI 里有鼓，就应该在网格里显示，不受“眼睛”图标影响。
- */
 export const getDrumStepsForMeasure = (midi, measure) => {
     if (!midi || !measure) return [];
     let rawNotes = [];
     const { startTime, endTime } = measure;
 
     midi.tracks.forEach((t, tIdx) => {
-        // [REMOVED] 移除 visibleTracks 过滤，防止因用户关闭了眼睛图标而导致网格空白
-        // if (visibleTracks && !visibleTracks.includes(tIdx)) return;
-
         const name = (t.name || "").toLowerCase();
         const inst = t.instrument || {};
         const instName = (inst.name || "").toLowerCase();
@@ -228,8 +214,14 @@ export const getDrumStepsForMeasure = (midi, measure) => {
 
 // --- 绘制核心逻辑 ---
 
-export const drawBackground = (p) => {
-  p.background(...CONFIG.THEME.BG);
+// [MODIFIED] 支持自定义背景色
+export const drawBackground = (p, bgColor) => {
+  if (bgColor) {
+      p.background(bgColor);
+  } else {
+      p.background(...CONFIG.THEME.BG);
+  }
+
   p.stroke(...CONFIG.THEME.GRID);
   p.strokeWeight(1);
   const beatX = p.width / 4;
@@ -363,8 +355,13 @@ export const drawCursor = (p, x, isVisible = true) => {
   p.triangle(x - 6, 0, x + 6, 0, x, 10);
 };
 
-export const drawIdleScreen = (p) => {
-  p.background(...CONFIG.THEME.BG);
+// [MODIFIED] 支持自定义背景色
+export const drawIdleScreen = (p, bgColor) => {
+  if (bgColor) {
+      p.background(bgColor);
+  } else {
+      p.background(...CONFIG.THEME.BG);
+  }
   p.fill(255, 50);
   p.textAlign(p.CENTER, p.CENTER);
   p.text("READY", p.width / 2, p.height / 2);

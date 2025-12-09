@@ -22,7 +22,6 @@ export const createSketch = (containerRef) => (p) => {
   let lastBarIndex = -1;
   let lastMidiData = null;
   let lastVisibleTracksRef = null;
-  // [NEW] 记录 Percussion Grid 开关状态，用于触发重绘
   let lastPercussionEnabledRef = null;
 
   // 记录翻页发生的时间，用于延迟消散
@@ -46,11 +45,13 @@ export const createSketch = (containerRef) => (p) => {
 
   p.draw = () => {
     const state = useStore.getState();
-    const { midiData, p5Settings, percussionSettings, visibleTrackIndices } = state;
+    // [MODIFIED] 从 state 中获取 backgroundColor
+    const { midiData, p5Settings, percussionSettings, visibleTrackIndices, backgroundColor } = state;
 
     // 1. Idle Screen
     if (!midiData) {
-      drawIdleScreen(p);
+      // [MODIFIED] 传入背景色
+      drawIdleScreen(p, backgroundColor);
       return;
     }
 
@@ -74,7 +75,8 @@ export const createSketch = (containerRef) => (p) => {
     const barProgress = (audioTime - activeMeasure.startTime) / activeMeasure.duration;
 
     // 4. Background
-    drawBackground(p);
+    // [MODIFIED] 传入背景色
+    drawBackground(p, backgroundColor);
 
     // --- State Update Logic ---
 
@@ -92,18 +94,16 @@ export const createSketch = (containerRef) => (p) => {
 
     // B. 加载新数据 (Cache Update)
     const isVisibilityChanged = visibleTrackIndices !== lastVisibleTracksRef;
-    // [NEW] 如果打击乐开关状态改变，也需要重新生成音符（因为要隐藏/显示鼓轨道）
     const isPercussionToggled = percussionSettings?.enabled !== lastPercussionEnabledRef;
 
     if (currentBarIndex !== cachedBarIndex || isVisibilityChanged || isPercussionToggled) {
-        // [MODIFIED] 传入 percussionSettings 以便 cacheNotesForBar 进行过滤
         cachedNotesCurrent = cacheNotesForBar(
             p,
             midiData,
             activeMeasure,
             p5Settings,
             visibleTrackIndices,
-            percussionSettings // 新增参数
+            percussionSettings
         );
 
         cachedDrumSteps = getDrumStepsForMeasure(midiData, activeMeasure, visibleTrackIndices);
