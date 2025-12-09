@@ -14,18 +14,18 @@ export const CONFIG = {
   }
 };
 
+// --- 颜色同步逻辑 (Match utils.js) ---
+
+export const getTrackHue = (index) => {
+  return (index * 137.5 + 20) % 360;
+};
+
 // --- 辅助函数 & 缓动函数 ---
 
 const easeOutExpo = (x) => {
   return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
 };
 
-export const getTrackHue = (index) => (index * 137) % 360;
-
-/**
- * [辅助函数] 计算布局参数
- * 统一管理 Note 的缩放、偏移和边距
- */
 const getLayout = (p, settings) => {
   const scaleY = settings?.noteAreaScale ?? 0.8;
   const offsetY = settings?.noteAreaOffsetY ?? 0;
@@ -114,10 +114,12 @@ export const getBarInfoAtTime = (measures, time) => {
 };
 
 /**
- * [UPDATED] cacheNotesForBar
- * 注入 measureStart 和 measureDuration 以便在 drawNotes 中计算进度
+ * [UPDATED] cacheNotesForBar (旋律音符)
+ * 1. 过滤可见性 (眼睛图标)
+ * 2. 如果网格开启，自动隐藏鼓轨道
+ * 3. 颜色同步 HSL
  */
-export const cacheNotesForBar = (p, midi, measure, settings) => {
+export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, percussionSettings) => {
   const notes = [];
   if (!measure) return notes;
 
@@ -127,9 +129,26 @@ export const cacheNotesForBar = (p, midi, measure, settings) => {
   const barEnd = measure.endTime;
 
   midi.tracks.forEach((track, tIdx) => {
+    // 1. 基础过滤：如果眼睛关了，这里就不渲染
+    if (visibleTracks && !visibleTracks.includes(tIdx)) return;
+
+    // 2. 自动隐藏逻辑：如果网格开启，且当前是鼓轨，则强制隐藏（不渲染矩形）
+    if (percussionSettings?.enabled) {
+        const name = (track.name || "").toLowerCase();
+        const inst = track.instrument || {};
+        const instName = (inst.name || "").toLowerCase();
+
+        const isDrum = name.includes('drum') || name.includes('perc') ||
+            instName.includes('drum') || instName.includes('perc') ||
+            inst.percussion === true || (track.channel === 9 || track.channel === 10);
+
+        if (isDrum) return;
+    }
+
+    // 3. 颜色计算 (HSL)
     const hue = getTrackHue(tIdx);
-    p.colorMode(p.HSB);
-    const col = p.color(hue, 70, 90);
+    p.colorMode(p.HSL, 360, 100, 100);
+    const col = p.color(hue, 70, 60);
     p.colorMode(p.RGB);
 
     track.notes.forEach(n => {
@@ -149,7 +168,6 @@ export const cacheNotesForBar = (p, midi, measure, settings) => {
               time: n.time,
               color: col,
               shrinkScale: 1.0,
-              // [NEW] 注入上下文，用于进度计算
               measureStart: barStart,
               measureDuration: barDuration
             });
@@ -160,17 +178,27 @@ export const cacheNotesForBar = (p, midi, measure, settings) => {
   return notes;
 };
 
+/**
+ * [FIXED] getDrumStepsForMeasure (打击乐网格数据)
+ * 修复：移除 visibleTracks 过滤。
+ * 只要 MIDI 里有鼓，就应该在网格里显示，不受“眼睛”图标影响。
+ */
 export const getDrumStepsForMeasure = (midi, measure) => {
     if (!midi || !measure) return [];
     let rawNotes = [];
     const { startTime, endTime } = measure;
-    midi.tracks.forEach((t) => {
+
+    midi.tracks.forEach((t, tIdx) => {
+        // [REMOVED] 移除 visibleTracks 过滤，防止因用户关闭了眼睛图标而导致网格空白
+        // if (visibleTracks && !visibleTracks.includes(tIdx)) return;
+
         const name = (t.name || "").toLowerCase();
         const inst = t.instrument || {};
         const instName = (inst.name || "").toLowerCase();
         const isDrum = name.includes('drum') || name.includes('perc') ||
             instName.includes('drum') || instName.includes('perc') ||
             inst.percussion === true || (t.channel === 9 || t.channel === 10);
+
         if (isDrum && t.notes) {
             t.notes.forEach(n => {
                 if (n.time >= startTime && n.time < endTime) {
@@ -179,6 +207,7 @@ export const getDrumStepsForMeasure = (midi, measure) => {
             });
         }
     });
+
     if (rawNotes.length === 0) return [];
     rawNotes.sort((a, b) => a.time - b.time);
     const steps = [];
@@ -208,18 +237,9 @@ export const drawBackground = (p) => {
   p.line(0, p.height / 2, p.width, p.height / 2);
 };
 
-// 定义衔接参数
-const FADE_START_RATIO = 0.45;    // 接近 50% 时开始
-const FADE_TARGET_RATIO = 0.95;   // 小节结束时，裁切到 95%（留 5% 的尾巴给 drawPreviousNotes）
+const FADE_START_RATIO = 0.45;
+const FADE_TARGET_RATIO = 0.95;
 
-/**
- * [UPDATED] drawNotes
- *
- * 核心逻辑：极度缓慢的启动
- * 使用 Math.pow(x, 4) 曲线。
- * 当进度刚过 0.45 时，fadeProgress 很小，pow(small, 4) 几乎为 0。
- * 只有当接近小节尾声时，裁切线才会显著移动。
- */
 export const drawNotes = (p, notes, audioTime, settings) => {
   if (!notes || notes.length === 0) return;
   p.noStroke();
@@ -228,30 +248,20 @@ export const drawNotes = (p, notes, audioTime, settings) => {
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
   const isFadeMode = settings?.pageTurnMode === 'fade';
 
-  // 1. 获取小节进度
   const measureStart = notes[0].measureStart || 0;
   const measureDuration = notes[0].measureDuration || 4.0;
   const playheadRatio = (audioTime - measureStart) / measureDuration;
 
-  // 2. 计算裁切位置
   let globalClipRatio = 0;
 
   if (isFadeMode && playheadRatio > FADE_START_RATIO) {
-      // 归一化进度 (0.0 ~ 1.0)
       const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
-
-      // [关键] 使用 4 次方曲线，实现“极度缓慢”的启动
-      // 例如：linearP = 0.2 (刚开始) -> 0.2^4 = 0.0016 (几乎不动)
-      //       linearP = 0.8 (快结束) -> 0.8^4 = 0.4096 (加速)
-      //       linearP = 1.0 (结束)   -> 1.0
       const easedP = Math.pow(linearP, 4);
-
       globalClipRatio = easedP * FADE_TARGET_RATIO;
   }
 
   for (let n of notes) {
     if (audioTime >= n.time) {
-        // A. 生长 (Extension)
         const age = audioTime - n.time;
         const linearProgress = Math.min(1, age * growSpeed);
         const easedProgress = easeOutExpo(linearProgress);
@@ -259,14 +269,11 @@ export const drawNotes = (p, notes, audioTime, settings) => {
         const originalStartRatio = n.ratioX;
         const currentEndRatio = originalStartRatio + (n.ratioW * easedProgress);
 
-        // B. 裁切 (Clipping)
-        // 只有当 globalClipRatio 追上音符起点时，音符才开始变短
         const visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
         const visibleEndRatio = currentEndRatio;
 
         if (visibleStartRatio >= visibleEndRatio) continue;
 
-        // C. 绘制
         const visibleW = visibleEndRatio - visibleStartRatio;
         const x = leftMargin + (visibleStartRatio * effectiveWidth);
         const w = Math.max(0, visibleW * effectiveWidth);
@@ -280,13 +287,6 @@ export const drawNotes = (p, notes, audioTime, settings) => {
   }
 };
 
-/**
- * [UPDATED] drawPreviousNotes
- *
- * 逻辑更新：
- * 这里的起点必须是 drawNotes 的终点 (FADE_TARGET_RATIO = 0.95)。
- * 这样切换小节时，视觉上是从 95% 的位置继续向右扫除，直到完全消失。
- */
 export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay = 0.25, wipeProgress = 0) => {
   p.noStroke();
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
@@ -294,14 +294,12 @@ export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay
 
   if (mode === 'fade') {
       const shrinkSpeed = settings?.shrinkSpeed || 0.08;
-      // 过渡时间不用太长，因为只剩下最后一点点了
       const transitionDuration = 0.5 - (shrinkSpeed * 2);
 
       const progress = timeSinceTransition / Math.max(0.1, transitionDuration);
 
-      // [关键] 起点衔接 drawNotes 的 0.95
       const startClip = FADE_TARGET_RATIO;
-      const endClip = 1.2; // 扫出屏幕即可
+      const endClip = 1.2;
 
       const wavePosition = startClip + (progress * (endClip - startClip));
 
@@ -324,8 +322,6 @@ export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay
       }
       return false;
   }
-
-  // Wipe Mode (保持不变)
   else {
       if (wipeProgress <= 1.0) {
         const wipeLine = wipeProgress;
