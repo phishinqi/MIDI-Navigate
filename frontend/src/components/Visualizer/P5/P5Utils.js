@@ -132,11 +132,9 @@ export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, perc
         const name = (track.name || "").toLowerCase();
         const inst = track.instrument || {};
         const instName = (inst.name || "").toLowerCase();
-
         const isDrum = name.includes('drum') || name.includes('perc') ||
             instName.includes('drum') || instName.includes('perc') ||
             inst.percussion === true || (track.channel === 9 || track.channel === 10);
-
         if (isDrum) return;
     }
 
@@ -214,14 +212,12 @@ export const getDrumStepsForMeasure = (midi, measure) => {
 
 // --- 绘制核心逻辑 ---
 
-// [MODIFIED] 支持自定义背景色
 export const drawBackground = (p, bgColor) => {
   if (bgColor) {
       p.background(bgColor);
   } else {
       p.background(...CONFIG.THEME.BG);
   }
-
   p.stroke(...CONFIG.THEME.GRID);
   p.strokeWeight(1);
   const beatX = p.width / 4;
@@ -230,13 +226,21 @@ export const drawBackground = (p, bgColor) => {
 };
 
 const FADE_START_RATIO = 0.45;
-const FADE_TARGET_RATIO = 0.95;
 
+/**
+ * [UPDATED] drawNotes
+ * 恢复对 shrinkSpeed 的响应。
+ */
 export const drawNotes = (p, notes, audioTime, settings) => {
   if (!notes || notes.length === 0) return;
   p.noStroke();
 
   const growSpeed = settings?.growSpeed || 3.0;
+  // [NEW] 获取并映射速度因子 (0.01~0.2 -> 0.5~8.0)
+  // 速度越快，裁切线跑得越远
+  const shrinkSetting = settings?.shrinkSpeed || 0.08;
+  const speedFactor = shrinkSetting * 20.0; // 0.08 -> 1.6
+
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
   const isFadeMode = settings?.pageTurnMode === 'fade';
 
@@ -247,9 +251,17 @@ export const drawNotes = (p, notes, audioTime, settings) => {
   let globalClipRatio = 0;
 
   if (isFadeMode && playheadRatio > FADE_START_RATIO) {
+      // 归一化进度 (0.0 ~ 1.0)
       const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
+
+      // 保持“慢启动”曲线 (4次方)
       const easedP = Math.pow(linearP, 4);
-      globalClipRatio = easedP * FADE_TARGET_RATIO;
+
+      // [NEW] 裁切终点由速度决定
+      // 如果速度慢，小节结束时可能只裁到 0.2
+      // 如果速度快，小节结束前可能就裁完了 (Clamp at 1.0)
+      const maxPossibleCut = speedFactor * 0.5; // *0.5 是因为时间窗口只剩一半
+      globalClipRatio = easedP * maxPossibleCut;
   }
 
   for (let n of notes) {
@@ -261,8 +273,12 @@ export const drawNotes = (p, notes, audioTime, settings) => {
         const originalStartRatio = n.ratioX;
         const currentEndRatio = originalStartRatio + (n.ratioW * easedProgress);
 
-        const visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
-        const visibleEndRatio = currentEndRatio;
+        let visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
+        let visibleEndRatio = currentEndRatio;
+
+        // Clamp
+        visibleStartRatio = Math.max(0, visibleStartRatio);
+        visibleEndRatio = Math.min(1, visibleEndRatio);
 
         if (visibleStartRatio >= visibleEndRatio) continue;
 
@@ -279,18 +295,36 @@ export const drawNotes = (p, notes, audioTime, settings) => {
   }
 };
 
+/**
+ * [UPDATED] drawPreviousNotes
+ * 动态计算衔接点，实现与 drawNotes 的无缝过渡。
+ */
 export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay = 0.25, wipeProgress = 0) => {
   p.noStroke();
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
   const mode = settings?.pageTurnMode || 'wipe';
 
   if (mode === 'fade') {
-      const shrinkSpeed = settings?.shrinkSpeed || 0.08;
-      const transitionDuration = 0.5 - (shrinkSpeed * 2);
+      const shrinkSetting = settings?.shrinkSpeed || 0.08;
+      // 动态计算小节结束时的裁切位置
+      // 这必须与 drawNotes 里的逻辑一致: 1.0 (linearP) -> 1.0^4 * (speed * 20 * 0.5)
+      const speedFactor = shrinkSetting * 20.0;
+      const handoverPoint = speedFactor * 0.5; // 这是上一小节结束时裁切线的位置
 
-      const progress = timeSinceTransition / Math.max(0.1, transitionDuration);
+      // 剩余路程 (假设我们要扫到 1.2)
+      // 如果 handoverPoint 已经超过 1.2，说明已经扫完了，设为 0
+      const remainingDist = Math.max(0, 1.2 - handoverPoint);
 
-      const startClip = FADE_TARGET_RATIO;
+      // 根据剩余路程决定消散时间，保证速度感一致
+      // 基础速度: speedFactor units / measureDuration(假设2s)
+      // 这里简化处理，直接用 shrinkSetting 控制剩余时间
+      const transitionDuration = remainingDist > 0 ? (0.6 / (speedFactor || 1)) : 0;
+
+      const progress = transitionDuration > 0 ? (timeSinceTransition / transitionDuration) : 1.1;
+
+      // 起点：handoverPoint (无缝衔接)
+      // 终点：1.2
+      const startClip = handoverPoint;
       const endClip = 1.2;
 
       const wavePosition = startClip + (progress * (endClip - startClip));
@@ -301,8 +335,12 @@ export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay
           const noteStart = n.ratioX;
           const noteEnd = n.ratioX + n.ratioW;
 
-          const visibleStart = Math.max(noteStart, wavePosition);
-          const visibleEnd = noteEnd;
+          let visibleStart = Math.max(noteStart, wavePosition);
+          let visibleEnd = noteEnd;
+
+          // Clamp
+          visibleStart = Math.max(0, visibleStart);
+          visibleEnd = Math.min(1, visibleEnd);
 
           if (visibleStart < visibleEnd) {
               const startX = leftMargin + (visibleStart * effectiveWidth);
@@ -324,16 +362,25 @@ export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay
 
             p.fill(n.color);
             if (noteStart > wipeLine) {
-                const baseW = Math.max(4, n.ratioW * effectiveWidth);
-                const x = leftMargin + (n.ratioX * effectiveWidth);
-                const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
-                p.rect(x, y, baseW, noteH);
+                const clampedStart = Math.max(0, noteStart);
+                const clampedEnd = Math.min(1, noteEnd);
+
+                if (clampedStart < clampedEnd) {
+                    const baseW = Math.max(4, (clampedEnd - clampedStart) * effectiveWidth);
+                    const x = leftMargin + (clampedStart * effectiveWidth);
+                    const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+                    p.rect(x, y, baseW, noteH);
+                }
             } else {
-                const visibleStart = wipeLine;
-                const visibleLen = noteEnd - visibleStart;
-                if (visibleLen > 0) {
+                let visibleStart = wipeLine;
+                let visibleEnd = noteEnd;
+
+                visibleStart = Math.max(0, visibleStart);
+                visibleEnd = Math.min(1, visibleEnd);
+
+                if (visibleStart < visibleEnd) {
                     const startX = leftMargin + (visibleStart * effectiveWidth);
-                    const w = Math.max(0, visibleLen * effectiveWidth);
+                    const w = Math.max(0, (visibleEnd - visibleStart) * effectiveWidth);
                     const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
                     p.rect(startX, y, w, noteH);
                 }
@@ -355,7 +402,6 @@ export const drawCursor = (p, x, isVisible = true) => {
   p.triangle(x - 6, 0, x + 6, 0, x, 10);
 };
 
-// [MODIFIED] 支持自定义背景色
 export const drawIdleScreen = (p, bgColor) => {
   if (bgColor) {
       p.background(bgColor);
