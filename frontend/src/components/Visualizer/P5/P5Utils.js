@@ -5,9 +5,6 @@ export const CONFIG = {
   GROW_SPEED: 3.0,
   MIN_PITCH: 0,
   MAX_PITCH: 127,
-  // --- 动画参数 (已调整为更显著的效果) ---
-  PRE_SHRINK_FACTOR: 0.25, // 收缩动画在音符时长的25%处开始 (动画时间更长)
-  MAX_SHRINK_RATIO: 0.9,   // 从左侧最大收缩90%的宽度 (收缩幅度更大)
   THEME: {
     BG: [10, 11, 14],
     GRID: [30, 32, 36],
@@ -23,13 +20,11 @@ const easeOutExpo = (x) => {
   return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
 };
 
-// 使用四次方缓入函数，使动画加速感更强
-const easeInQuart = (t) => t * t * t * t;
-
 export const getTrackHue = (index) => (index * 137) % 360;
 
 /**
  * [辅助函数] 计算布局参数
+ * 统一管理 Note 的缩放、偏移和边距
  */
 const getLayout = (p, settings) => {
   const scaleY = settings?.noteAreaScale ?? 0.8;
@@ -45,7 +40,8 @@ const getLayout = (p, settings) => {
   return { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH };
 };
 
-// --- MIDI 数据处理核心 (无变动) ---
+// --- MIDI 数据处理核心 ---
+
 export const calculateMeasureMap = (midi) => {
   if (!midi || !midi.header) return [];
   const ppq = midi.header.ppq || 480;
@@ -117,6 +113,10 @@ export const getBarInfoAtTime = (measures, time) => {
   return measures[measures.length - 1];
 };
 
+/**
+ * [UPDATED] cacheNotesForBar
+ * 注入 measureStart 和 measureDuration 以便在 drawNotes 中计算进度
+ */
 export const cacheNotesForBar = (p, midi, measure, settings) => {
   const notes = [];
   if (!measure) return notes;
@@ -147,8 +147,11 @@ export const cacheNotesForBar = (p, midi, measure, settings) => {
               ratioW,
               normPitch,
               time: n.time,
-              duration: n.duration,
-              color: col
+              color: col,
+              shrinkScale: 1.0,
+              // [NEW] 注入上下文，用于进度计算
+              measureStart: barStart,
+              measureDuration: barDuration
             });
         }
       }
@@ -194,7 +197,6 @@ export const getDrumStepsForMeasure = (midi, measure) => {
     return steps;
 };
 
-
 // --- 绘制核心逻辑 ---
 
 export const drawBackground = (p) => {
@@ -206,79 +208,152 @@ export const drawBackground = (p) => {
   p.line(0, p.height / 2, p.width, p.height / 2);
 };
 
+// 定义衔接参数
+const FADE_START_RATIO = 0.45;    // 接近 50% 时开始
+const FADE_TARGET_RATIO = 0.95;   // 小节结束时，裁切到 95%（留 5% 的尾巴给 drawPreviousNotes）
+
 /**
- * [MODIFIED] 统一的音符绘制函数
- * 动画逻辑更新，分离了“预收缩”和“光标裁切”，使效果更明显。
+ * [UPDATED] drawNotes
+ *
+ * 核心逻辑：极度缓慢的启动
+ * 使用 Math.pow(x, 4) 曲线。
+ * 当进度刚过 0.45 时，fadeProgress 很小，pow(small, 4) 几乎为 0。
+ * 只有当接近小节尾声时，裁切线才会显著移动。
  */
-export const drawNotes = (p, notes, audioTime, currentMeasure, settings) => {
-  if (!currentMeasure) return;
-
+export const drawNotes = (p, notes, audioTime, settings) => {
+  if (!notes || notes.length === 0) return;
   p.noStroke();
-  const growSpeed = settings?.growSpeed || CONFIG.GROW_SPEED;
-  const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
 
-  const playheadRatio = (audioTime - currentMeasure.startTime) / currentMeasure.duration;
+  const growSpeed = settings?.growSpeed || 3.0;
+  const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
+  const isFadeMode = settings?.pageTurnMode === 'fade';
+
+  // 1. 获取小节进度
+  const measureStart = notes[0].measureStart || 0;
+  const measureDuration = notes[0].measureDuration || 4.0;
+  const playheadRatio = (audioTime - measureStart) / measureDuration;
+
+  // 2. 计算裁切位置
+  let globalClipRatio = 0;
+
+  if (isFadeMode && playheadRatio > FADE_START_RATIO) {
+      // 归一化进度 (0.0 ~ 1.0)
+      const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
+
+      // [关键] 使用 4 次方曲线，实现“极度缓慢”的启动
+      // 例如：linearP = 0.2 (刚开始) -> 0.2^4 = 0.0016 (几乎不动)
+      //       linearP = 0.8 (快结束) -> 0.8^4 = 0.4096 (加速)
+      //       linearP = 1.0 (结束)   -> 1.0
+      const easedP = Math.pow(linearP, 4);
+
+      globalClipRatio = easedP * FADE_TARGET_RATIO;
+  }
 
   for (let n of notes) {
-    if (audioTime < n.time) {
-      continue;
+    if (audioTime >= n.time) {
+        // A. 生长 (Extension)
+        const age = audioTime - n.time;
+        const linearProgress = Math.min(1, age * growSpeed);
+        const easedProgress = easeOutExpo(linearProgress);
+
+        const originalStartRatio = n.ratioX;
+        const currentEndRatio = originalStartRatio + (n.ratioW * easedProgress);
+
+        // B. 裁切 (Clipping)
+        // 只有当 globalClipRatio 追上音符起点时，音符才开始变短
+        const visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
+        const visibleEndRatio = currentEndRatio;
+
+        if (visibleStartRatio >= visibleEndRatio) continue;
+
+        // C. 绘制
+        const visibleW = visibleEndRatio - visibleStartRatio;
+        const x = leftMargin + (visibleStartRatio * effectiveWidth);
+        const w = Math.max(0, visibleW * effectiveWidth);
+        const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+
+        if (w > 0) {
+            p.fill(n.color);
+            p.rect(x, y, w, noteH);
+        }
     }
+  }
+};
 
-    const noteStartTime = n.time;
-    const noteEndTime = noteStartTime + n.duration;
+/**
+ * [UPDATED] drawPreviousNotes
+ *
+ * 逻辑更新：
+ * 这里的起点必须是 drawNotes 的终点 (FADE_TARGET_RATIO = 0.95)。
+ * 这样切换小节时，视觉上是从 95% 的位置继续向右扫除，直到完全消失。
+ */
+export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay = 0.25, wipeProgress = 0) => {
+  p.noStroke();
+  const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
+  const mode = settings?.pageTurnMode || 'wipe';
 
-    // --- 1. 在相对坐标空间中计算边界 ---
+  if (mode === 'fade') {
+      const shrinkSpeed = settings?.shrinkSpeed || 0.08;
+      // 过渡时间不用太长，因为只剩下最后一点点了
+      const transitionDuration = 0.5 - (shrinkSpeed * 2);
 
-    let noteStartRatio = n.ratioX;
-    const noteEndRatio = n.ratioX + n.ratioW;
+      const progress = timeSinceTransition / Math.max(0.1, transitionDuration);
 
-    // --- 预收缩动画逻辑 ---
-    const preShrinkFactor = settings?.preShrinkFactor || CONFIG.PRE_SHRINK_FACTOR;
-    const maxShrinkRatio = settings?.maxShrinkRatio || CONFIG.MAX_SHRINK_RATIO;
+      // [关键] 起点衔接 drawNotes 的 0.95
+      const startClip = FADE_TARGET_RATIO;
+      const endClip = 1.2; // 扫出屏幕即可
 
-    const preShrinkStartTime = noteStartTime + (n.duration * preShrinkFactor);
-    const preShrinkDuration = noteEndTime - preShrinkStartTime;
-    const maxShrinkAmountRatio = n.ratioW * maxShrinkRatio;
+      const wavePosition = startClip + (progress * (endClip - startClip));
 
-    if (audioTime > preShrinkStartTime && preShrinkDuration > 0) {
-        const rawProgress = (audioTime - preShrinkStartTime) / preShrinkDuration;
-        // [MODIFIED] 使用更强的缓动函数，让动画更有冲击力
-        const shrinkProgress = easeInQuart(Math.min(1.0, rawProgress));
-        const shrinkAmountRatio = maxShrinkAmountRatio * shrinkProgress;
-        noteStartRatio += shrinkAmountRatio;
-    }
+      if (progress >= 1.2) return true;
 
-    // --- 生长动画逻辑 ---
-    const age = audioTime - noteStartTime;
-    const growthProgress = easeOutExpo(Math.min(1, age * growSpeed));
-    const growthEndRatio = n.ratioX + (n.ratioW * growthProgress);
+      for (let n of notes) {
+          const noteStart = n.ratioX;
+          const noteEnd = n.ratioX + n.ratioW;
 
-    // --- 裁切逻辑 (仅在音符结束后启动) ---
-    let clipStartRatio = 0; // 默认无裁切
-    // [MODIFIED] 裁切只在音符自身时长结束后才开始
-    if (audioTime > noteEndTime) {
-        clipStartRatio = playheadRatio;
-    }
+          const visibleStart = Math.max(noteStart, wavePosition);
+          const visibleEnd = noteEnd;
 
-    // --- 2. 确定最终可见的区间 ---
-    const finalVisibleStartRatio = Math.max(noteStartRatio, clipStartRatio);
-    const finalVisibleEndRatio = Math.min(noteEndRatio, growthEndRatio);
+          if (visibleStart < visibleEnd) {
+              const startX = leftMargin + (visibleStart * effectiveWidth);
+              const w = (visibleEnd - visibleStart) * effectiveWidth;
+              const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+              p.fill(n.color);
+              p.rect(startX, y, w, noteH);
+          }
+      }
+      return false;
+  }
 
-    if (finalVisibleStartRatio >= finalVisibleEndRatio) {
-      continue;
-    }
+  // Wipe Mode (保持不变)
+  else {
+      if (wipeProgress <= 1.0) {
+        const wipeLine = wipeProgress;
+        for (let n of notes) {
+            const noteStart = n.ratioX;
+            const noteEnd = n.ratioX + n.ratioW;
+            if (noteEnd < wipeLine) continue;
 
-    // --- 3. 将相对坐标转换为像素并绘制 ---
-    const visibleWidthRatio = finalVisibleEndRatio - finalVisibleStartRatio;
-
-    const x = leftMargin + (finalVisibleStartRatio * effectiveWidth);
-    const w = visibleWidthRatio * effectiveWidth;
-    const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
-
-    if (w > 0) {
-      p.fill(n.color);
-      p.rect(x, y, w, noteH);
-    }
+            p.fill(n.color);
+            if (noteStart > wipeLine) {
+                const baseW = Math.max(4, n.ratioW * effectiveWidth);
+                const x = leftMargin + (n.ratioX * effectiveWidth);
+                const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+                p.rect(x, y, baseW, noteH);
+            } else {
+                const visibleStart = wipeLine;
+                const visibleLen = noteEnd - visibleStart;
+                if (visibleLen > 0) {
+                    const startX = leftMargin + (visibleStart * effectiveWidth);
+                    const w = Math.max(0, visibleLen * effectiveWidth);
+                    const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+                    p.rect(startX, y, w, noteH);
+                }
+            }
+        }
+        return false;
+      }
+      return wipeProgress > 1.2;
   }
 };
 
