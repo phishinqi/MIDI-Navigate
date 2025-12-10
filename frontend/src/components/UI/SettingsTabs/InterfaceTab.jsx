@@ -1,59 +1,52 @@
-// frontend/src/components/InterfaceTab.js
+// frontend/src/components/UI/SettingTabs/InterfaceTab.jsx
 import React, { useRef } from 'react';
 import useStore from '@/store/useStore';
 import {
   Layout, Sliders, Palette, Sun, Moon, Zap, Gauge, List, Cable,
   Volume2, VolumeX, Monitor, Box, MoveHorizontal, MoveVertical,
   MousePointer2, Video, ArrowRightLeft, ScanLine, GripVertical,
-  Server, Cpu, Download, Upload, Activity, Wind, Maximize, ArrowUpDown,
-  Scaling, AlignJustify, ArrowRight, Grid3X3 // [Added] Grid Icon
+  Server, Cpu, Download, Upload, Wind, Maximize, ArrowUpDown,
+  Scaling, AlignJustify, ArrowRight, Grid3X3, BrainCircuit, Star, Timer, Hourglass
 } from 'lucide-react';
 import { audioEngine } from '@/audio/AudioEngine';
 import * as Slider from '@radix-ui/react-slider';
 import * as Switch from '@radix-ui/react-switch';
+import BezierCurveEditor from '../Common/BezierCurveEditor.jsx';
 
 const InterfaceTab = () => {
   // --- Store Access ---
-  const viewSettings = useStore(state => state.viewSettings);
   const setViewSettings = useStore(state => state.setViewSettings);
   const renderEngine = useStore(state => state.renderEngine);
   const setRenderEngine = useStore(state => state.setRenderEngine);
-
   const p5Settings = useStore(state => state.p5Settings);
   const setP5Settings = useStore(state => state.setP5Settings);
-
+  const addP5CurvePreset = useStore(state => state.addP5CurvePreset);
+  const removeP5CurvePreset = useStore(state => state.removeP5CurvePreset);
+  const applyP5CurvePreset = useStore(state => state.applyP5CurvePreset);
   const backgroundColor = useStore(state => state.backgroundColor);
   const setBackgroundColor = useStore(state => state.setBackgroundColor);
-
   const midiOutputs = useStore(state => state.midiOutputs);
   const selectedMidiOutput = useStore(state => state.selectedMidiOutput);
   const setSelectedMidiOutput = useStore(state => state.setSelectedMidiOutput);
-
   const useInternalAudio = useStore(state => state.useInternalAudio);
   const toggleInternalAudio = useStore(state => state.toggleInternalAudio);
-
   const chordDetectionMode = useStore(state => state.chordDetectionMode);
   const setChordDetectionMode = useStore(state => state.setChordDetectionMode);
-
   const analysisSensitivity = useStore(state => state.analysisSensitivity);
   const setAnalysisSensitivity = useStore(state => state.setAnalysisSensitivity);
-
   const analysisComplexity = useStore(state => state.analysisComplexity);
   const setAnalysisComplexity = useStore(state => state.setAnalysisComplexity);
-
   const isGlowEnabled = useStore(state => state.isGlowEnabled);
   const toggleGlow = useStore(state => state.toggleGlow);
-
   const autoTextContrast = useStore(state => state.autoTextContrast);
   const toggleAutoTextContrast = useStore(state => state.toggleAutoTextContrast);
   const forceDarkText = useStore(state => state.forceDarkText);
   const toggleForceDarkText = useStore(state => state.toggleForceDarkText);
-
   const showPlayerWidget = useStore(state => state.showPlayerWidget);
   const togglePlayerWidget = useStore(state => state.togglePlayerWidget);
-
   const showAnalysisWidget = useStore(state => state.showAnalysisWidget);
   const toggleAnalysisWidget = useStore(state => state.toggleAnalysisWidget);
+  const viewSettings = useStore(state => state.viewSettings);
 
   const fileInputRef = useRef(null);
 
@@ -63,14 +56,18 @@ const InterfaceTab = () => {
   // --- Default Fallback with Safe Guards ---
   const currentP5Settings = p5Settings || {
     showCursor: true,
-    showGrid: true, // 默认开启网格
-    growSpeed: 3.0,
+    showGrid: true,
     shrinkSpeed: 0.08,
     noteAreaScale: 0.8,
     noteAreaOffsetY: 0,
     horizontalZoom: 1.0,
     noteHeight: 6,
-    pageTurnMode: 'wipe'
+    pageTurnMode: 'wipe',
+    growCurve: [0.1, 0.85, 0.75, 0.9],
+    fadeCurve: [0.42, 0, 1, 1],
+    curvePresets: [],
+    meteorHoldTime: 0.5,
+    meteorFadeTime: 1.5,
   };
 
   // --- Handlers ---
@@ -189,26 +186,54 @@ const InterfaceTab = () => {
 
           <div className="space-y-4 bg-white/5 p-3 rounded-lg">
 
-             {/* Page Turn Mode Control */}
-             <div className="flex items-center justify-between pb-2 border-b border-white/5 mb-2">
-                <div className="flex items-center gap-2 opacity-80"><ArrowRight size={14} /><span className="text-xs font-bold">Page Turn Mode</span></div>
-                <div className="flex bg-black/20 rounded p-1">
-                    <button onClick={() => setP5Settings({ pageTurnMode: 'fade' })} className={`px-3 py-1 text-[10px] font-bold rounded transition-all flex items-center gap-1 ${currentP5Settings.pageTurnMode === 'fade' ? 'bg-white text-black shadow' : 'text-white/40 hover:text-white'}`}><Wind size={10} /> Fade</button>
-                    <button onClick={() => setP5Settings({ pageTurnMode: 'wipe' })} className={`px-3 py-1 text-[10px] font-bold rounded transition-all flex items-center gap-1 ${currentP5Settings.pageTurnMode === 'wipe' ? 'bg-midi-accent text-black shadow' : 'text-white/40 hover:text-white'}`}><ScanLine size={10} /> Wipe</button>
+            {/* MODIFIED: Final Page Turn Mode Control */}
+            <div className="space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-bold">
+                    <span className="flex items-center gap-1 opacity-80"><ArrowRight size={14} /> Page Turn Mode</span>
                 </div>
+                <div className="flex bg-black/20 rounded p-1 text-[10px] font-bold">
+                    <button onClick={() => setP5Settings({ pageTurnMode: 'wipe' })} className={`flex-1 px-3 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${currentP5Settings.pageTurnMode === 'wipe' ? 'bg-midi-accent text-black shadow' : 'text-white/40 hover:text-white'}`}><ScanLine size={12} /> Wipe</button>
+                    <button onClick={() => setP5Settings({ pageTurnMode: 'fade' })} className={`flex-1 px-3 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${currentP5Settings.pageTurnMode === 'fade' ? 'bg-white text-black shadow' : 'text-white/40 hover:text-white'}`}><Wind size={12} /> Fade</button>
+                    <button onClick={() => setP5Settings({ pageTurnMode: 'meteor' })} className={`flex-1 px-3 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${(currentP5Settings.pageTurnMode === 'meteor' || currentP5Settings.pageTurnMode === 'fade-stagger' /* Legacy support */) ? 'bg-white text-black shadow' : 'text-white/40 hover:text-white'}`}><Star size={12} /> Meteor</button>
+                </div>
+            </div>
+
+
+             {/* Note Growth Curve Editor with Presets */}
+             <div className="pt-2 border-t border-white/5 mt-3 space-y-2">
+                <div className="flex justify-between text-[10px] font-bold mb-2">
+                    <span className="flex items-center gap-1 opacity-80"><BrainCircuit size={14} /> Note Growth Curve</span>
+                </div>
+                <BezierCurveEditor
+                  value={currentP5Settings.growCurve || [0.1, 0.85, 0.75, 0.9]}
+                  onChange={(newCurve) => setP5Settings({ growCurve: newCurve })}
+                  presets={currentP5Settings.curvePresets || []}
+                  onAddPreset={addP5CurvePreset}
+                  onRemovePreset={removeP5CurvePreset}
+                  onApplyPreset={applyP5CurvePreset}
+                />
              </div>
 
-             {/* Speed Controls */}
-             <div className="space-y-2">
-                <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Activity size={12} /> Write Speed (Grow)</span> <span className="font-mono">{currentP5Settings.growSpeed}</span></div>
-                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.growSpeed]} min={1} max={10} step={0.5} onValueChange={(v) => setP5Settings({ growSpeed: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
-             </div>
-
-             {/* Only show shrink speed if in Fade mode */}
-             {currentP5Settings.pageTurnMode === 'fade' && (
-                 <div className="space-y-2 animate-in fade-in zoom-in duration-200">
-                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Wind size={12} /> Fade Out Speed</span> <span className="font-mono">{currentP5Settings.shrinkSpeed}</span></div>
-                    <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.shrinkSpeed]} min={0.01} max={0.2} step={0.01} onValueChange={(v) => setP5Settings({ shrinkSpeed: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+             {/* MODIFIED: Conditional Settings for Meteor Mode */}
+             {currentP5Settings.pageTurnMode === 'meteor' && (
+                 <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200 border-t border-white/10 pt-4 mt-4">
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Hourglass size={12} /> Meteor Hold Time</span> <span className="font-mono">{(currentP5Settings.meteorHoldTime || 0.5).toFixed(2)}s</span></div>
+                        <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.meteorHoldTime || 0.5]} min={0.0} max={2.0} step={0.1} onValueChange={(v) => setP5Settings({ meteorHoldTime: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Timer size={12} /> Meteor Fade Time</span> <span className="font-mono">{(currentP5Settings.meteorFadeTime || 1.5).toFixed(2)}s</span></div>
+                        <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.meteorFadeTime || 1.5]} min={0.1} max={5.0} step={0.1} onValueChange={(v) => setP5Settings({ meteorFadeTime: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                    </div>
+                    <div className="pt-2 space-y-2">
+                        <div className="flex justify-between text-[10px] font-bold mb-2">
+                            <span className="flex items-center gap-1 opacity-80"><Star size={14} /> Meteor Fade Curve</span>
+                        </div>
+                        <BezierCurveEditor
+                            value={currentP5Settings.fadeCurve || [0.42, 0, 1, 1]}
+                            onChange={(newCurve) => setP5Settings({ fadeCurve: newCurve })}
+                        />
+                    </div>
                  </div>
              )}
 
@@ -229,25 +254,15 @@ const InterfaceTab = () => {
 
              {/* Toggles */}
              <div className="flex flex-col gap-2 pt-2 border-t border-white/5 mt-2">
-                {/* Show Playhead */}
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-2 opacity-80"><ScanLine size={14} /><span className="text-xs font-bold">Show Playhead</span></div>
                    <Switch.Root className={`w-8 h-4 rounded-full relative transition-colors ${currentP5Settings.showCursor !== false ? toggleBgOn : toggleBgOff}`} checked={currentP5Settings.showCursor !== false} onCheckedChange={(c) => setP5Settings({ showCursor: c })}><Switch.Thumb className={`block w-3 h-3 bg-white rounded-full shadow transition-transform translate-x-0.5 ${currentP5Settings.showCursor !== false ? 'translate-x-[18px]' : ''}`} /></Switch.Root>
                 </div>
-
-                {/* Show Background Grid */}
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-2 opacity-80"><Grid3X3 size={14} /><span className="text-xs font-bold">Show Background Grid</span></div>
-                   <Switch.Root
-                     className={`w-8 h-4 rounded-full relative transition-colors ${currentP5Settings.showGrid !== false ? toggleBgOn : toggleBgOff}`}
-                     checked={currentP5Settings.showGrid !== false}
-                     onCheckedChange={(c) => setP5Settings({ showGrid: c })}
-                   >
-                     <Switch.Thumb className={`block w-3 h-3 bg-white rounded-full shadow transition-transform translate-x-0.5 ${currentP5Settings.showGrid !== false ? 'translate-x-[18px]' : ''}`} />
-                   </Switch.Root>
+                   <Switch.Root className={`w-8 h-4 rounded-full relative transition-colors ${currentP5Settings.showGrid !== false ? toggleBgOn : toggleBgOff}`} checked={currentP5Settings.showGrid !== false} onCheckedChange={(c) => setP5Settings({ showGrid: c })}><Switch.Thumb className={`block w-3 h-3 bg-white rounded-full shadow transition-transform translate-x-0.5 ${currentP5Settings.showGrid !== false ? 'translate-x-[18px]' : ''}`} /></Switch.Root>
                 </div>
              </div>
-
           </div>
         </div>
       )}

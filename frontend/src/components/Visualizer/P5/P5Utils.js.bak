@@ -1,6 +1,90 @@
 // frontend/src/components/Visualizer/P5/P5Utils.js
 import { getDrumVisuals } from '@/lib/percussionMap';
 
+// ==========================================
+// NEW: Cubic Bezier Easing Function Generator
+// 一个标准的、用于创建平滑且复杂缓动曲线的工具。
+// ==========================================
+
+const NEWTON_ITERATIONS = 4;
+const NEWTON_MIN_SLOPE = 0.001;
+const SUBDIVISION_PRECISION = 0.0000001;
+const SUBDIVISION_MAX_ITERATIONS = 10;
+const kSplineTableSize = 11;
+const kSampleStepSize = 1.0 / (kSplineTableSize - 1.0);
+
+const A = (aA1, aA2) => 1.0 - 3.0 * aA2 + 3.0 * aA1;
+const B = (aA1, aA2) => 3.0 * aA2 - 6.0 * aA1;
+const C = (aA1) => 3.0 * aA1;
+
+const CalcBezier = (aT, aA1, aA2) => ((A(aA1, aA2) * aT + B(aA1, aA2)) * aT + C(aA1)) * aT;
+const GetSlope = (aT, aA1, aA2) => 3.0 * A(aA1, aA2) * aT * aT + 2.0 * B(aA1, aA2) * aT + C(aA1);
+
+const GetTForX = (aX, mX1, mX2) => {
+    let aGuessT = aX;
+    for (let i = 0; i < NEWTON_ITERATIONS; ++i) {
+        const currentSlope = GetSlope(aGuessT, mX1, mX2);
+        if (currentSlope === 0.0) return aGuessT;
+        const currentX = CalcBezier(aGuessT, mX1, mX2) - aX;
+        aGuessT -= currentX / currentSlope;
+    }
+    return aGuessT;
+};
+
+/**
+ * Creates a cubic-bezier easing function.
+ * @param {number} mX1 - X coordinate of the first control point.
+ * @param {number} mY1 - Y coordinate of the first control point.
+ * @param {number} mX2 - X coordinate of the second control point.
+ * @param {number} mY2 - Y coordinate of the second control point.
+ * @returns {function(number): number} - The easing function.
+ */
+export const createBezier = (mX1, mY1, mX2, mY2) => {
+    if (mX1 < 0 || mX1 > 1 || mX2 < 0 || mX2 > 1) {
+        throw new Error('Bezier x values must be in [0, 1] range.');
+    }
+
+    const mSampleValues = new Float32Array(kSplineTableSize);
+    if (mX1 !== mY1 || mX2 !== mY2) {
+        for (let i = 0; i < kSplineTableSize; ++i) {
+            mSampleValues[i] = CalcBezier(i * kSampleStepSize, mX1, mX2);
+        }
+    }
+
+    const getT = (aX) => {
+        if (mX1 === mY1 && mX2 === mY2) return aX;
+        if (aX === 0) return 0;
+        if (aX === 1) return 1;
+
+        let intervalStart = 0.0;
+        let lastSample = 0;
+
+        for (; lastSample < kSplineTableSize - 1 && mSampleValues[lastSample] <= aX; ++lastSample) {
+            intervalStart += kSampleStepSize;
+        }
+        --lastSample;
+
+        const dist = (aX - mSampleValues[lastSample]) / (mSampleValues[lastSample + 1] - mSampleValues[lastSample]);
+        const guessForT = intervalStart + dist * kSampleStepSize;
+        const initialSlope = GetSlope(guessForT, mX1, mX2);
+
+        if (initialSlope >= NEWTON_MIN_SLOPE) {
+            return GetTForX(aX, mX1, mX2);
+        }
+        return guessForT;
+    };
+
+    return (x) => {
+        if (x === 0 || x === 1) return x;
+        return CalcBezier(getT(x), mY1, mY2);
+    };
+};
+
+
+// ==========================================
+// 1. CONFIGURATION & HELPERS
+// ==========================================
+
 export const CONFIG = {
   SHRINK_SPEED: 0.05,
   GROW_SPEED: 3.0,
@@ -15,16 +99,8 @@ export const CONFIG = {
   }
 };
 
-// --- 颜色同步逻辑 (Match utils.js) ---
-
 export const getTrackHue = (index) => {
   return (index * 137.5 + 20) % 360;
-};
-
-// --- 辅助函数 & 缓动函数 ---
-
-const easeOutExpo = (x) => {
-  return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
 };
 
 const getLayout = (p, settings) => {
@@ -41,7 +117,9 @@ const getLayout = (p, settings) => {
   return { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH };
 };
 
-// --- MIDI 数据处理核心 ---
+// ==========================================
+// 2. MIDI DATA PROCESSING (此部分无变化)
+// ==========================================
 
 export const calculateMeasureMap = (midi) => {
   if (!midi || !midi.header) return [];
@@ -51,6 +129,11 @@ export const calculateMeasureMap = (midi) => {
   const duration = midi.duration || 0;
 
   const sortedTempos = [...rawTempos].sort((a, b) => a.ticks - b.ticks);
+  const sortedMeters = [...rawMeters].sort((a, b) => a.ticks - b.ticks);
+
+  if (sortedMeters.length === 0) sortedMeters.push({ ticks: 0, timeSignature: [4, 4] });
+  if (sortedMeters[0].ticks > 0) sortedMeters.unshift({ ticks: 0, timeSignature: [4, 4] });
+
   const tempoMap = [];
   let accTime = 0;
   let lastTick = 0;
@@ -65,10 +148,6 @@ export const calculateMeasureMap = (midi) => {
   });
 
   const measures = [];
-  const sortedMeters = [...rawMeters].sort((a, b) => a.ticks - b.ticks);
-  if (sortedMeters.length === 0) sortedMeters.push({ ticks: 0, timeSignature: [4, 4] });
-  if (sortedMeters[0].ticks > 0) sortedMeters.unshift({ ticks: 0, timeSignature: [4, 4] });
-
   let currentTick = 0;
   let currentTime = 0;
   let meterIdx = 0;
@@ -87,6 +166,7 @@ export const calculateMeasureMap = (midi) => {
         if (tempoMap[i].tick <= currentTick) { refTempo = tempoMap[i]; break; }
     }
     const bpm = refTempo ? refTempo.bpm : 120;
+
     const measureDuration = (60 / bpm) * (ticksPerMeasure / ppq);
 
     measures.push({
@@ -114,9 +194,6 @@ export const getBarInfoAtTime = (measures, time) => {
   return measures[measures.length - 1];
 };
 
-/**
- * [UPDATED] cacheNotesForBar
- */
 export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, percussionSettings) => {
   const notes = [];
   if (!measure) return notes;
@@ -171,7 +248,7 @@ export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, perc
   return notes;
 };
 
-export const getDrumStepsForMeasure = (midi, measure) => {
+export const getDrumStepsForMeasure = (midi, measure, visibleTracks) => {
     if (!midi || !measure) return [];
     let rawNotes = [];
     const { startTime, endTime } = measure;
@@ -187,6 +264,7 @@ export const getDrumStepsForMeasure = (midi, measure) => {
         if (isDrum && t.notes) {
             t.notes.forEach(n => {
                 if (n.time >= startTime && n.time < endTime) {
+                    n.instrumentName = instName || name || "drum";
                     rawNotes.push(n);
                 }
             });
@@ -195,9 +273,11 @@ export const getDrumStepsForMeasure = (midi, measure) => {
 
     if (rawNotes.length === 0) return [];
     rawNotes.sort((a, b) => a.time - b.time);
+
     const steps = [];
     const THRESHOLD = 0.035;
     let currentStep = { time: rawNotes[0].time, notes: [rawNotes[0]] };
+
     for (let i = 1; i < rawNotes.length; i++) {
         const note = rawNotes[i];
         if (note.time - currentStep.time < THRESHOLD) {
@@ -211,13 +291,19 @@ export const getDrumStepsForMeasure = (midi, measure) => {
     return steps;
 };
 
-// --- 绘制核心逻辑 ---
 
-export const drawBackground = (p, bgColor) => {
+// ==========================================
+// 3. RENDERING LOGIC (绘制逻辑)
+// ==========================================
+
+export const drawBackground = (p, bgColor, settings) => {
   if (bgColor) {
       p.background(bgColor);
   } else {
       p.background(...CONFIG.THEME.BG);
+  }
+  if (settings?.showGrid === false) {
+      return;
   }
   p.stroke(...CONFIG.THEME.GRID);
   p.strokeWeight(1);
@@ -228,56 +314,56 @@ export const drawBackground = (p, bgColor) => {
 
 const FADE_START_RATIO = 0.45;
 
-/**
- * [UPDATED] drawNotes
- * 恢复对 shrinkSpeed 的响应。
- */
-export const drawNotes = (p, notes, audioTime, settings) => {
+export const drawNotes = (p, notes, audioTime, settings, growCurve = [0.1, 0.85, 0.75, 0.9]) => {
   if (!notes || notes.length === 0) return;
   p.noStroke();
 
-  const growSpeed = settings?.growSpeed || 3.0;
-  // [NEW] 获取并映射速度因子 (0.01~0.2 -> 0.5~8.0)
-  // 速度越快，裁切线跑得越远
+  // 1. 在函数内部根据传入的 growCurve 动态创建缓动函数
+  const midlifePlateauEase = createBezier(...growCurve);
+
   const shrinkSetting = settings?.shrinkSpeed || 0.08;
-  const speedFactor = shrinkSetting * 20.0; // 0.08 -> 1.6
-
+  const speedFactor = shrinkSetting * 20.0;
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
+
   const isFadeMode = settings?.pageTurnMode === 'fade';
-
-  const measureStart = notes[0].measureStart || 0;
-  const measureDuration = notes[0].measureDuration || 4.0;
-  const playheadRatio = (audioTime - measureStart) / measureDuration;
-
   let globalClipRatio = 0;
 
-  if (isFadeMode && playheadRatio > FADE_START_RATIO) {
-      // 归一化进度 (0.0 ~ 1.0)
-      const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
+  if (isFadeMode) {
+      const measureStart = notes[0]?.measureStart || 0;
+      const measureDuration = notes[0]?.measureDuration || 4.0;
+      const playheadRatio = (audioTime - measureStart) / measureDuration;
 
-      // 保持“慢启动”曲线 (4次方)
-      const easedP = Math.pow(linearP, 4);
-
-      // [NEW] 裁切终点由速度决定
-      // 如果速度慢，小节结束时可能只裁到 0.2
-      // 如果速度快，小节结束前可能就裁完了 (Clamp at 1.0)
-      const maxPossibleCut = speedFactor * 0.5; // *0.5 是因为时间窗口只剩一半
-      globalClipRatio = easedP * maxPossibleCut;
+      if (playheadRatio > FADE_START_RATIO) {
+          const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
+          const easedP = Math.pow(linearP, 4);
+          const maxPossibleCut = speedFactor * 0.5;
+          globalClipRatio = easedP * maxPossibleCut;
+      }
   }
 
   for (let n of notes) {
     if (audioTime >= n.time) {
+
         const age = audioTime - n.time;
-        const linearProgress = Math.min(1, age * growSpeed);
-        const easedProgress = easeOutExpo(linearProgress);
+        const noteDurationInSeconds = n.ratioW * n.measureDuration;
+
+        let growthProgress = 1.0;
+        if (noteDurationInSeconds > 0.01) {
+             growthProgress = Math.min(1.0, age / noteDurationInSeconds);
+        }
+
+        // 2. 使用动态创建的缓动函数
+        const easedProgress = midlifePlateauEase(growthProgress);
 
         const originalStartRatio = n.ratioX;
         const currentEndRatio = originalStartRatio + (n.ratioW * easedProgress);
 
-        let visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
+        let visibleStartRatio = originalStartRatio;
+        if (isFadeMode) {
+            visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
+        }
         let visibleEndRatio = currentEndRatio;
 
-        // Clamp
         visibleStartRatio = Math.max(0, visibleStartRatio);
         visibleEndRatio = Math.min(1, visibleEndRatio);
 
@@ -287,59 +373,43 @@ export const drawNotes = (p, notes, audioTime, settings) => {
         const x = leftMargin + (visibleStartRatio * effectiveWidth);
         const w = Math.max(0, visibleW * effectiveWidth);
         const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+        const h = noteH;
 
         if (w > 0) {
             p.fill(n.color);
-            p.rect(x, y, w, noteH);
+            p.rect(x, y, w, h);
         }
     }
   }
 };
 
-/**
- * [UPDATED] drawPreviousNotes
- * 动态计算衔接点，实现与 drawNotes 的无缝过渡。
- */
 export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay = 0.25, wipeProgress = 0) => {
+  if (!notes || notes.length === 0) return true;
   p.noStroke();
+
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
   const mode = settings?.pageTurnMode || 'wipe';
 
   if (mode === 'fade') {
       const shrinkSetting = settings?.shrinkSpeed || 0.08;
-      // 动态计算小节结束时的裁切位置
-      // 这必须与 drawNotes 里的逻辑一致: 1.0 (linearP) -> 1.0^4 * (speed * 20 * 0.5)
       const speedFactor = shrinkSetting * 20.0;
-      const handoverPoint = speedFactor * 0.5; // 这是上一小节结束时裁切线的位置
+      const handoverPoint = speedFactor * 0.5;
+      const endPoint = 1.2;
+      const remainingDist = Math.max(0, endPoint - handoverPoint);
+      const prevDuration = notes.prevBarDuration || 2.0;
+      const transitionDuration = remainingDist * (prevDuration * 0.5 / (speedFactor || 1));
+      const safeDuration = Math.max(0.1, transitionDuration);
+      const progress = timeSinceTransition / safeDuration;
 
-      // 剩余路程 (假设我们要扫到 1.2)
-      // 如果 handoverPoint 已经超过 1.2，说明已经扫完了，设为 0
-      const remainingDist = Math.max(0, 1.2 - handoverPoint);
+      if (progress >= 1.0) return true;
 
-      // 根据剩余路程决定消散时间，保证速度感一致
-      // 基础速度: speedFactor units / measureDuration(假设2s)
-      // 这里简化处理，直接用 shrinkSetting 控制剩余时间
-      const transitionDuration = remainingDist > 0 ? (0.6 / (speedFactor || 1)) : 0;
-
-      const progress = transitionDuration > 0 ? (timeSinceTransition / transitionDuration) : 1.1;
-
-      // 起点：handoverPoint (无缝衔接)
-      // 终点：1.2
-      const startClip = handoverPoint;
-      const endClip = 1.2;
-
-      const wavePosition = startClip + (progress * (endClip - startClip));
-
-      if (progress >= 1.2) return true;
+      const wavePosition = handoverPoint + (progress * (endPoint - handoverPoint));
 
       for (let n of notes) {
           const noteStart = n.ratioX;
           const noteEnd = n.ratioX + n.ratioW;
-
           let visibleStart = Math.max(noteStart, wavePosition);
           let visibleEnd = noteEnd;
-
-          // Clamp
           visibleStart = Math.max(0, visibleStart);
           visibleEnd = Math.min(1, visibleEnd);
 
@@ -354,42 +424,31 @@ export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay
       return false;
   }
   else {
-      if (wipeProgress <= 1.0) {
-        const wipeLine = wipeProgress;
-        for (let n of notes) {
-            const noteStart = n.ratioX;
-            const noteEnd = n.ratioX + n.ratioW;
-            if (noteEnd < wipeLine) continue;
-
-            p.fill(n.color);
-            if (noteStart > wipeLine) {
-                const clampedStart = Math.max(0, noteStart);
-                const clampedEnd = Math.min(1, noteEnd);
-
-                if (clampedStart < clampedEnd) {
-                    const baseW = Math.max(4, (clampedEnd - clampedStart) * effectiveWidth);
-                    const x = leftMargin + (clampedStart * effectiveWidth);
-                    const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
-                    p.rect(x, y, baseW, noteH);
-                }
-            } else {
-                let visibleStart = wipeLine;
-                let visibleEnd = noteEnd;
-
-                visibleStart = Math.max(0, visibleStart);
-                visibleEnd = Math.min(1, visibleEnd);
-
-                if (visibleStart < visibleEnd) {
-                    const startX = leftMargin + (visibleStart * effectiveWidth);
-                    const w = Math.max(0, (visibleEnd - visibleStart) * effectiveWidth);
-                    const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
-                    p.rect(startX, y, w, noteH);
-                }
-            }
-        }
-        return false;
+      const wipeLine = wipeProgress;
+      if (wipeLine > 1.1) return true;
+      for (let n of notes) {
+          const noteStart = n.ratioX;
+          const noteEnd = n.ratioX + n.ratioW;
+          if (noteEnd < wipeLine) continue;
+          p.fill(n.color);
+          if (noteStart < wipeLine) {
+              const visibleStart = wipeLine;
+              const visibleEnd = noteEnd;
+              if (visibleStart < visibleEnd) {
+                  const startX = leftMargin + (visibleStart * effectiveWidth);
+                  const w = (visibleEnd - visibleStart) * effectiveWidth;
+                  const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+                  p.rect(startX, y, w, noteH);
+              }
+          }
+          else {
+              const startX = leftMargin + (noteStart * effectiveWidth);
+              const w = (noteEnd - noteStart) * effectiveWidth;
+              const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+              p.rect(startX, y, w, noteH);
+          }
       }
-      return wipeProgress > 1.2;
+      return false;
   }
 };
 
@@ -398,6 +457,7 @@ export const drawCursor = (p, x, isVisible = true) => {
   p.stroke(...CONFIG.THEME.CURSOR);
   p.strokeWeight(2);
   p.line(x, 0, x, p.height);
+
   p.fill(...CONFIG.THEME.CURSOR);
   p.noStroke();
   p.triangle(x - 6, 0, x + 6, 0, x, 10);
@@ -411,5 +471,6 @@ export const drawIdleScreen = (p, bgColor) => {
   }
   p.fill(255, 50);
   p.textAlign(p.CENTER, p.CENTER);
-  p.text("READY", p.width / 2, p.height / 2);
+  p.textSize(16);
+  p.text("WAITING FOR MIDI", p.width / 2, p.height / 2);
 };

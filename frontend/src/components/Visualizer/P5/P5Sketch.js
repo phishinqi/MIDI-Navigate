@@ -1,3 +1,4 @@
+// frontend/src/components/Visualizer/P5/P5Sketch.js
 import useStore from '@/store/useStore';
 import * as Tone from 'tone';
 import {
@@ -82,13 +83,10 @@ export const createSketch = (containerRef) => (p) => {
       if (lastBarIndex !== -1 && currentBarIndex === lastBarIndex + 1) {
         cachedNotesPrev = [...cachedNotesCurrent];
         cachedNotesPrev.forEach(n => n.shrinkScale = 1.0);
-        
-        // [关键修复] 记录上一小节的 duration，用于 Fade 模式计算正确的消散速度
-        cachedNotesPrev.prevBarDuration = activeMeasure.duration; 
-        
+        cachedNotesPrev.prevBarDuration = activeMeasure.duration;
         transitionStartTime = audioTime;
       } else {
-        cachedNotesPrev = []; // 只要不是连续小节（如跳转播放），直接清空
+        cachedNotesPrev = [];
       }
       lastBarIndex = currentBarIndex;
     }
@@ -106,9 +104,7 @@ export const createSketch = (containerRef) => (p) => {
             visibleTrackIndices,
             percussionSettings
         );
-
         cachedDrumSteps = getDrumStepsForMeasure(midiData, activeMeasure, visibleTrackIndices);
-
         cachedBarIndex = currentBarIndex;
         lastVisibleTracksRef = visibleTrackIndices;
         lastPercussionEnabledRef = percussionSettings?.enabled;
@@ -119,22 +115,32 @@ export const createSketch = (containerRef) => (p) => {
     // Layer A: Percussion Grid
     drawPercussionGrid(p, cachedDrumSteps, audioTime, percussionSettings);
 
-    // Layer B: Previous Melodic Notes (处理 Wipe 和 Fade 两种模式)
+    // Layer B: Previous Melodic Notes
     const timeSinceTransition = audioTime - transitionStartTime;
-    // 传入 barProgress 是为了 Wipe 模式（旧音符随新光标位置消失）
+    // ================================================================
+    // 关键修改：为 drawPreviousNotes 传入 audioTime
+    // The key change is to pass audioTime into drawPreviousNotes
+    // ================================================================
     const allGone = drawPreviousNotes(
         p,
         cachedNotesPrev,
+        audioTime,          // <-- 此处添加了 audioTime
         p5Settings,
         timeSinceTransition,
-        0.3, 
-        barProgress 
+        0.3,
+        barProgress
     );
 
     if (allGone) cachedNotesPrev = [];
 
     // Layer C: Current Melodic Notes
-    drawNotes(p, cachedNotesCurrent, audioTime, p5Settings);
+    drawNotes(
+        p,
+        cachedNotesCurrent,
+        audioTime,
+        p5Settings,
+        p5Settings.growCurve
+    );
 
     // Layer D: Playhead Cursor
     if (p5Settings?.showCursor) {

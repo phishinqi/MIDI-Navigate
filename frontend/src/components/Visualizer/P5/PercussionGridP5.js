@@ -379,3 +379,26 @@ const drawStyleMonochrome = (p, x, y, s, comp, age) => {
 
     p.pop();
 };
+
+const drawStyleMonochrome2 = (p, x, y, s, comp, age) => {
+    const energy = getEnergy(age, 8);
+    if (energy < 0.01) return;
+    const cx = x + s/2, cy = y + s/2;
+    const mono = p.color(255);
+
+    p.push(); p.translate(cx, cy); p.blendMode(p.ADD);
+    mono.setAlpha(energy * 255);
+    p.stroke(mono); p.noFill();
+
+    if (comp.kick) {
+        p.strokeWeight(2);
+        p.circle(0, 0, s * 0.6 * energy);
+        p.circle(0, 0, s * 0.8 * (1-energy));
+    } else if (comp.snare) {
+        p.rectMode(p.CENTER);
+        p.rect(0, 0, s*0.5*energy, s*0.5*energy);
+    } else {
+        p.point(0,0);
+    }
+    p.pop();
+};

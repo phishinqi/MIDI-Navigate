@@ -17,11 +17,6 @@ const PlayerControls = ({ isLight }) => {
   const setVolume = useStore((state) => state.setVolume);
   const toggleMute = useStore((state) => state.toggleMute);
 
-  useEffect(() => {
-    if (midiData) audioEngine.loadMidi(midiData);
-    return () => audioEngine.cleanup();
-  }, [midiData]);
-
   useEffect(() => { audioEngine.setMasterVolume(volume); }, [volume]);
   useEffect(() => { audioEngine.setMute(isMuted); }, [isMuted]);
 

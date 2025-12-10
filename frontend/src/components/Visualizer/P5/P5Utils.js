@@ -2,40 +2,88 @@
 import { getDrumVisuals } from '@/lib/percussionMap';
 
 // ==========================================
+// NEW: Cubic Bezier Easing Function Generator
+// ==========================================
+
+const NEWTON_ITERATIONS = 4;
+const NEWTON_MIN_SLOPE = 0.001;
+const kSplineTableSize = 11;
+const kSampleStepSize = 1.0 / (kSplineTableSize - 1.0);
+
+const A = (aA1, aA2) => 1.0 - 3.0 * aA2 + 3.0 * aA1;
+const B = (aA1, aA2) => 3.0 * aA2 - 6.0 * aA1;
+const C = (aA1) => 3.0 * aA1;
+
+const CalcBezier = (aT, aA1, aA2) => ((A(aA1, aA2) * aT + B(aA1, aA2)) * aT + C(aA1)) * aT;
+const GetSlope = (aT, aA1, aA2) => 3.0 * A(aA1, aA2) * aT * aT + 2.0 * B(aA1, aA2) * aT + C(aA1);
+
+const GetTForX = (aX, mX1, mX2) => {
+    let aGuessT = aX;
+    for (let i = 0; i < NEWTON_ITERATIONS; ++i) {
+        const currentSlope = GetSlope(aGuessT, mX1, mX2);
+        if (currentSlope === 0.0) return aGuessT;
+        const currentX = CalcBezier(aGuessT, mX1, mX2) - aX;
+        aGuessT -= currentX / currentSlope;
+    }
+    return aGuessT;
+};
+
+export const createBezier = (mX1, mY1, mX2, mY2) => {
+    if (mX1 < 0 || mX1 > 1 || mX2 < 0 || mX2 > 1) {
+        throw new Error('Bezier x values must be in [0, 1] range.');
+    }
+    const mSampleValues = new Float32Array(kSplineTableSize);
+    if (mX1 !== mY1 || mX2 !== mY2) {
+        for (let i = 0; i < kSplineTableSize; ++i) {
+            mSampleValues[i] = CalcBezier(i * kSampleStepSize, mX1, mX2);
+        }
+    }
+    const getT = (aX) => {
+        if (mX1 === mY1 && mX2 === mY2) return aX;
+        if (aX === 0) return 0;
+        if (aX === 1) return 1;
+        let iStart = 0.0, lastSample = 0;
+        for (; lastSample < kSplineTableSize - 1 && mSampleValues[lastSample] <= aX; ++lastSample) {
+            iStart += kSampleStepSize;
+        }
+        --lastSample;
+        const dist = (aX - mSampleValues[lastSample]) / (mSampleValues[lastSample + 1] - mSampleValues[lastSample]);
+        const guessForT = iStart + dist * kSampleStepSize;
+        const initialSlope = GetSlope(guessForT, mX1, mX2);
+        if (initialSlope >= NEWTON_MIN_SLOPE) {
+            return GetTForX(aX, mX1, mX2);
+        }
+        return guessForT;
+    };
+    return (x) => {
+        if (x === 0 || x === 1) return x;
+        return CalcBezier(getT(x), mY1, mY2);
+    };
+};
+
+
+// ==========================================
 // 1. CONFIGURATION & HELPERS
 // ==========================================
 
 export const CONFIG = {
-  SHRINK_SPEED: 0.05, // 基础消散速度系数
-  GROW_SPEED: 3.0,    // 音符生长速度
+  SHRINK_SPEED: 0.05,
+  GROW_SPEED: 3.0,
   MIN_PITCH: 0,
   MAX_PITCH: 127,
   THEME: {
-    BG: [10, 11, 14],       // 深色背景
-    GRID: [30, 32, 36],     // 网格线
-    CURSOR: [255, 200, 0],  // 亮黄色光标
+    BG: [10, 11, 14],
+    GRID: [30, 32, 36],
+    CURSOR: [255, 200, 0],
     WIPE_LINE: [255, 255, 255, 100],
     WIPE_FILL: [20, 20, 30, 0]
   }
 };
 
-/**
- * 根据轨道索引生成颜色 Hue
- */
 export const getTrackHue = (index) => {
   return (index * 137.5 + 20) % 360;
 };
 
-/**
- * 缓动函数：Expo Out (用于音符弹出)
- */
-const easeOutExpo = (x) => {
-  return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
-};
-
-/**
- * 计算绘图区域布局
- */
 const getLayout = (p, settings) => {
   const scaleY = settings?.noteAreaScale ?? 0.8;
   const offsetY = settings?.noteAreaOffsetY ?? 0;
@@ -51,13 +99,9 @@ const getLayout = (p, settings) => {
 };
 
 // ==========================================
-// 2. MIDI DATA PROCESSING (核心数据处理)
+// 2. MIDI DATA PROCESSING
 // ==========================================
 
-/**
- * 计算整个 MIDI 的小节映射表 (Measure Map)
- * 处理 BPM 变化和拍号变化
- */
 export const calculateMeasureMap = (midi) => {
   if (!midi || !midi.header) return [];
   const ppq = midi.header.ppq || 480;
@@ -65,15 +109,12 @@ export const calculateMeasureMap = (midi) => {
   const rawMeters = midi.header.timeSignatures || [];
   const duration = midi.duration || 0;
 
-  // 排序
   const sortedTempos = [...rawTempos].sort((a, b) => a.ticks - b.ticks);
   const sortedMeters = [...rawMeters].sort((a, b) => a.ticks - b.ticks);
 
-  // 确保有初始拍号
   if (sortedMeters.length === 0) sortedMeters.push({ ticks: 0, timeSignature: [4, 4] });
   if (sortedMeters[0].ticks > 0) sortedMeters.unshift({ ticks: 0, timeSignature: [4, 4] });
 
-  // 构建 Tempo Map (Tick -> Time)
   const tempoMap = [];
   let accTime = 0;
   let lastTick = 0;
@@ -93,9 +134,7 @@ export const calculateMeasureMap = (midi) => {
   let meterIdx = 0;
   let barIndex = 0;
 
-  // 循环生成小节，直到覆盖整个 duration + 缓冲
   while (currentTime < duration + 5) {
-    // 找到当前有效的拍号
     while (meterIdx < sortedMeters.length - 1 && currentTick >= sortedMeters[meterIdx + 1].ticks) {
         meterIdx++;
     }
@@ -103,14 +142,12 @@ export const calculateMeasureMap = (midi) => {
     const [num, den] = meter.timeSignature;
     const ticksPerMeasure = num * (ppq * 4 / den);
 
-    // 找到当前 BPM
     let refTempo = tempoMap[0];
     for (let i = tempoMap.length - 1; i >= 0; i--) {
         if (tempoMap[i].tick <= currentTick) { refTempo = tempoMap[i]; break; }
     }
     const bpm = refTempo ? refTempo.bpm : 120;
 
-    // 计算当前小节时长
     const measureDuration = (60 / bpm) * (ticksPerMeasure / ppq);
 
     measures.push({
@@ -128,100 +165,81 @@ export const calculateMeasureMap = (midi) => {
   return measures;
 };
 
-/**
- * 根据当前时间查找所在小节
- */
 export const getBarInfoAtTime = (measures, time) => {
   if (!measures || measures.length === 0) return null;
-  // 二分查找优化可能更好，但线性查找对于几百个小节也足够快
   for (let i = 0; i < measures.length; i++) {
     if (time >= measures[i].startTime && time < measures[i].endTime) {
       return measures[i];
     }
   }
-  // 如果超出范围，返回最后一个
   return measures[measures.length - 1];
 };
 
-/**
- * 缓存当前小节的旋律音符
- * 包含：位置归一化、颜色计算、过滤鼓点
- */
+// =================================================================
+// MODIFIED: cacheNotesForBar now has special "greedy" logic for meteor mode.
+// =================================================================
 export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, percussionSettings) => {
   const notes = [];
   if (!measure) return notes;
 
   const barStart = measure.startTime;
   const barDuration = measure.duration;
-  const buffer = 0.1; // 允许稍微超出边界的音符显示
   const barEnd = measure.endTime;
+  const mode = settings?.pageTurnMode;
 
   midi.tracks.forEach((track, tIdx) => {
-    // 1. 轨道可见性过滤
     if (visibleTracks && !visibleTracks.includes(tIdx)) return;
 
-    // 2. 鼓点过滤 (如果开启了独立鼓机视图，通常不在旋律视图显示鼓)
-    if (percussionSettings?.enabled) {
-        const name = (track.name || "").toLowerCase();
-        const inst = track.instrument || {};
-        const instName = (inst.name || "").toLowerCase();
-        // 简单的关键词检测
-        const isDrum = name.includes('drum') || name.includes('perc') ||
-            instName.includes('drum') || instName.includes('perc') ||
-            inst.percussion === true || (track.channel === 9 || track.channel === 10);
-        if (isDrum) return;
-    }
+    const name = (track.name || "").toLowerCase();
+    const inst = track.instrument || {};
+    const instName = (inst.name || "").toLowerCase();
+    const isDrum = name.includes('drum') || name.includes('perc') ||
+                   instName.includes('drum') || instName.includes('perc') ||
+                   inst.percussion === true || (track.channel === 9 || track.channel === 10);
+    if (percussionSettings?.enabled && isDrum) return;
 
-    // 3. 颜色准备
     const hue = getTrackHue(tIdx);
     p.colorMode(p.HSL, 360, 100, 100);
     const col = p.color(hue, 70, 60);
     p.colorMode(p.RGB);
 
-    // 4. 遍历音符
     track.notes.forEach(n => {
-      // 检查是否与当前小节有交集
-      const overlaps = (n.time < barEnd + buffer) && (n.time + n.duration > barStart - buffer);
+      let overlaps = false;
+      if (mode === 'meteor') {
+        // "Greedy" logic for meteor: check if the note's *entire lifecycle* overlaps with the current measure.
+        const holdDuration = settings.meteorHoldTime || 0.5;
+        const fadeDuration = settings.meteorFadeTime || 1.5;
+        const noteLifecycleEnd = n.time + holdDuration + fadeDuration;
+        overlaps = (n.time < barEnd) && (noteLifecycleEnd > barStart);
+      } else {
+        // Original logic for wipe and fade modes.
+        const buffer = 0.1;
+        overlaps = (n.time < barEnd + buffer) && (n.time + n.duration > barStart - buffer);
+      }
 
       if (overlaps) {
-        // 计算相对位置 (0.0 ~ 1.0)
         const relTime = n.time - barStart;
         const ratioX = relTime / barDuration;
         const ratioW = n.duration / barDuration;
         const normPitch = (n.midi - CONFIG.MIN_PITCH) / (CONFIG.MAX_PITCH - CONFIG.MIN_PITCH);
 
-        // 简单的范围剔除
-        if (ratioX + ratioW > -0.1 && ratioX < 1.1) {
-            notes.push({
-              ratioX,
-              ratioW,
-              normPitch,
-              time: n.time,
-              color: col,
-              shrinkScale: 1.0,
-              measureStart: barStart,
-              measureDuration: barDuration
-            });
-        }
+        notes.push({
+          ratioX, ratioW, normPitch, time: n.time, color: col,
+          measureStart: barStart, measureDuration: barDuration
+        });
       }
     });
   });
   return notes;
 };
 
-/**
- * 提取当前小节的鼓点数据 (Grid Data)
- * 将靠近的鼓点合并为一个 Step
- */
+
 export const getDrumStepsForMeasure = (midi, measure, visibleTracks) => {
     if (!midi || !measure) return [];
     let rawNotes = [];
     const { startTime, endTime } = measure;
 
     midi.tracks.forEach((t, tIdx) => {
-        // 可见性检查 (可选，通常鼓全部提取)
-        // if (visibleTracks && !visibleTracks.includes(tIdx)) return;
-
         const name = (t.name || "").toLowerCase();
         const inst = t.instrument || {};
         const instName = (inst.name || "").toLowerCase();
@@ -232,7 +250,6 @@ export const getDrumStepsForMeasure = (midi, measure, visibleTracks) => {
         if (isDrum && t.notes) {
             t.notes.forEach(n => {
                 if (n.time >= startTime && n.time < endTime) {
-                    // 附带乐器信息，用于 mapping
                     n.instrumentName = instName || name || "drum";
                     rawNotes.push(n);
                 }
@@ -241,13 +258,10 @@ export const getDrumStepsForMeasure = (midi, measure, visibleTracks) => {
     });
 
     if (rawNotes.length === 0) return [];
-
-    // 按时间排序
     rawNotes.sort((a, b) => a.time - b.time);
 
-    // 合并时间相近的音符为同一步 (Step)
     const steps = [];
-    const THRESHOLD = 0.035; // 35ms 内的鼓点视为同一步
+    const THRESHOLD = 0.035;
     let currentStep = { time: rawNotes[0].time, notes: [rawNotes[0]] };
 
     for (let i = 1; i < rawNotes.length; i++) {
@@ -263,26 +277,20 @@ export const getDrumStepsForMeasure = (midi, measure, visibleTracks) => {
     return steps;
 };
 
+
 // ==========================================
 // 3. RENDERING LOGIC (绘制逻辑)
 // ==========================================
 
-// [UPDATED] 修改函数签名，增加 settings 参数
 export const drawBackground = (p, bgColor, settings) => {
-  // 1. 绘制背景色
   if (bgColor) {
       p.background(bgColor);
   } else {
       p.background(...CONFIG.THEME.BG);
   }
-
-  // 2. [新增] 检查开关，如果 showGrid 为 false 则不画线
-  // 使用 !== false 是为了确保旧配置 undefined 时默认显示
   if (settings?.showGrid === false) {
       return;
   }
-
-  // 3. 绘制网格线
   p.stroke(...CONFIG.THEME.GRID);
   p.strokeWeight(1);
   const beatX = p.width / 4;
@@ -290,138 +298,157 @@ export const drawBackground = (p, bgColor, settings) => {
   p.line(0, p.height / 2, p.width, p.height / 2);
 };
 
-const FADE_START_RATIO = 0.45; // Fade 模式下，何时开始预裁切
+// =================================================================
+// FINAL: Animation logic for 'meteor' mode based on individual lifecycle.
+// =================================================================
+const getMeteorShrinkProgress = (note, audioTime, settings, fadeCurve) => {
+    const fadeEaser = createBezier(...(fadeCurve || [0.42, 0, 1, 1]));
+    const holdDuration = settings.meteorHoldTime || 0.5;
+    const fadeDuration = settings.meteorFadeTime || 1.5;
 
-/**
- * 绘制当前小节的音符
- * 特性：
- * 1. Grow: 音符随时间弹出
- * 2. Pre-Cut (Fade Mode): 小节末尾音符提前开始从左侧裁切
- */
-export const drawNotes = (p, notes, audioTime, settings) => {
+    const animStartTime = note.time + holdDuration;
+    if (audioTime < animStartTime) return 0;
+    if (fadeDuration <= 0) return 1.0;
+
+    const animAge = audioTime - animStartTime;
+    const linearProgress = Math.min(1.0, animAge / fadeDuration);
+    return fadeEaser(linearProgress);
+}
+
+export const drawNotes = (p, notes, audioTime, settings, growCurve = [0.1, 0.85, 0.75, 0.9]) => {
   if (!notes || notes.length === 0) return;
   p.noStroke();
 
-  const growSpeed = settings?.growSpeed || 3.0;
-  const shrinkSetting = settings?.shrinkSpeed || 0.08;
-  const speedFactor = shrinkSetting * 20.0;
+  const midlifePlateauEase = createBezier(...growCurve);
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
+  const mode = settings?.pageTurnMode || 'wipe';
 
-  const isFadeMode = settings?.pageTurnMode === 'fade';
-
-  let globalClipRatio = 0;
-
-  // --- FADE 模式：计算预裁切位置 ---
-  if (isFadeMode) {
+  let globalClipRatio = 0; // Only for 'fade' mode
+  if (mode === 'fade') {
       const measureStart = notes[0]?.measureStart || 0;
       const measureDuration = notes[0]?.measureDuration || 4.0;
       const playheadRatio = (audioTime - measureStart) / measureDuration;
-
-      // 当播放超过 45% 时，隐形裁切线开始从 0 移动
+      const FADE_START_RATIO = 0.45;
       if (playheadRatio > FADE_START_RATIO) {
+          const shrinkSetting = settings?.shrinkSpeed || 0.08;
+          const speedFactor = shrinkSetting * 20.0;
           const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
-          // 4次方曲线：慢启动，快结束（追赶播放头）
           const easedP = Math.pow(linearP, 4);
-          // 0.5 表示在小节结束那一刻，裁切线最多走到一半的位置（剩下的交给 drawPreviousNotes）
           const maxPossibleCut = speedFactor * 0.5;
           globalClipRatio = easedP * maxPossibleCut;
       }
   }
 
   for (let n of notes) {
-    // 只绘制已发生的音符
     if (audioTime >= n.time) {
-        // A. 生长动画 (Grow)
         const age = audioTime - n.time;
-        const linearProgress = Math.min(1, age * growSpeed);
-        const easedProgress = easeOutExpo(linearProgress); // 嘭！弹出效果
+        const noteDurationInSeconds = n.ratioW * n.measureDuration;
+        const growthProgress = (noteDurationInSeconds > 0.01) ? Math.min(1.0, age / noteDurationInSeconds) : 1.0;
+        const easedProgress = midlifePlateauEase(growthProgress);
 
         const originalStartRatio = n.ratioX;
         const currentEndRatio = originalStartRatio + (n.ratioW * easedProgress);
-
-        // B. 裁切计算
         let visibleStartRatio = originalStartRatio;
-        if (isFadeMode) {
-            // 如果处于 Fade 模式，应用全局裁切
+
+        if (mode === 'fade') {
             visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
+        } else if (mode === 'meteor') {
+            const shrinkProgress = getMeteorShrinkProgress(n, audioTime, settings, settings.fadeCurve);
+            visibleStartRatio = originalStartRatio + (n.ratioW * shrinkProgress);
         }
-        let visibleEndRatio = currentEndRatio;
 
-        // 边界限制
-        visibleStartRatio = Math.max(0, visibleStartRatio);
-        visibleEndRatio = Math.min(1, visibleEndRatio);
+        // This clipping is now essential for the greedy caching in meteor mode
+        const finalVisibleStart = Math.max(0, visibleStartRatio);
+        const finalVisibleEnd = Math.min(1, currentEndRatio);
 
-        // 如果被完全裁切掉，跳过
-        if (visibleStartRatio >= visibleEndRatio) continue;
+        if (finalVisibleStart >= finalVisibleEnd) continue;
 
-        // C. 绘制
-        const visibleW = visibleEndRatio - visibleStartRatio;
-        const x = leftMargin + (visibleStartRatio * effectiveWidth);
-        const w = Math.max(0, visibleW * effectiveWidth);
+        const x = leftMargin + (finalVisibleStart * effectiveWidth);
+        const w = (finalVisibleEnd - finalVisibleStart) * effectiveWidth;
         const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+        const h = noteH;
 
         if (w > 0) {
             p.fill(n.color);
-            p.rect(x, y, w, noteH);
+            p.rect(x, y, w, h);
         }
     }
   }
 };
 
-/**
- * 绘制上一小节的残影 (Transitions)
- * 支持两种模式：
- * 1. Fade: 继承当前小节的惯性，向右无缝流走
- * 2. Wipe: 随播放头光标位置被擦除
- */
-export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay = 0.25, wipeProgress = 0) => {
-  if (!notes || notes.length === 0) return true; // 返回 true 表示已清理完毕
+export const drawPreviousNotes = (p, notes, audioTime, settings, timeSinceTransition, delay = 0.25, wipeProgress = 0) => {
+  const mode = settings?.pageTurnMode || 'wipe';
+
+  if (!notes || notes.length === 0) return true;
   p.noStroke();
 
   const { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH } = getLayout(p, settings);
-  const mode = settings?.pageTurnMode || 'wipe';
+  let allNotesGone = true;
 
-  // --- MODE 1: FADE (流体衔接) ---
-  if (mode === 'fade') {
+  if (mode === 'meteor') {
+    // 'meteor' 模式的动画依赖于全局播放时间 audioTime
+    if (audioTime === undefined) return true;
+
+    for (let n of notes) {
+        const holdDuration = settings.meteorHoldTime || 0.5;
+        const fadeDuration = settings.meteorFadeTime || 1.5;
+
+        // 如果音符的整个生命周期已经结束，则跳过
+        if (audioTime > n.time + holdDuration + fadeDuration) {
+            continue;
+        }
+        allNotesGone = false; // 只要有一个音符还在，就不能算全部消失
+
+        // 只绘制那些已经开始的音符
+        if (audioTime >= n.time) {
+            const shrinkProgress = getMeteorShrinkProgress(n, audioTime, settings, settings.fadeCurve);
+
+            // 对于来自前一个小节的音符，我们视其已完成生长，只处理收缩动画
+            const growthProgress = 1.0;
+            const originalStartRatio = n.ratioX;
+            const currentEndRatio = originalStartRatio + (n.ratioW * growthProgress);
+            let visibleStartRatio = originalStartRatio + (n.ratioW * shrinkProgress);
+
+            const finalVisibleStart = Math.max(0, visibleStartRatio);
+            const finalVisibleEnd = Math.min(1, currentEndRatio);
+
+            if (finalVisibleStart >= finalVisibleEnd) continue;
+
+            const x = leftMargin + (finalVisibleStart * effectiveWidth);
+            const w = (finalVisibleEnd - finalVisibleStart) * effectiveWidth;
+            const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+
+            if (w > 0) {
+                p.fill(n.color);
+                p.rect(x, y, w, noteH);
+            }
+        }
+    }
+    return allNotesGone;
+
+  } else if (mode === 'fade') {
       const shrinkSetting = settings?.shrinkSpeed || 0.08;
       const speedFactor = shrinkSetting * 20.0;
-
-      // 1. 计算接力点 (Handover Point)
-      // 这必须与 drawNotes 里的 maxPossibleCut 逻辑一致
       const handoverPoint = speedFactor * 0.5;
-
-      // 2. 计算消散路程
-      // 从接力点扫到屏幕外(1.2)
       const endPoint = 1.2;
       const remainingDist = Math.max(0, endPoint - handoverPoint);
-
-      // 3. 计算消散时长 (基于上一小节的真实时长)
-      // 这里的逻辑是：保证消散的“线速度”与上一小节播放时的速度感大致匹配
-      // 如果上一小节很长(慢歌)，消散就慢；很短(快歌)，消散就快
       const prevDuration = notes.prevBarDuration || 2.0;
-      // 系数 0.5 用于平衡曲线感知
       const transitionDuration = remainingDist * (prevDuration * 0.5 / (speedFactor || 1));
-
       const safeDuration = Math.max(0.1, transitionDuration);
       const progress = timeSinceTransition / safeDuration;
 
-      // 结束条件
       if (progress >= 1.0) return true;
-
-      // 4. 计算当前裁切线位置
       const wavePosition = handoverPoint + (progress * (endPoint - handoverPoint));
 
       for (let n of notes) {
           const noteStart = n.ratioX;
           const noteEnd = n.ratioX + n.ratioW;
-
-          let visibleStart = Math.max(noteStart, wavePosition); // 核心：从 wavePosition 开始裁
-          let visibleEnd = noteEnd;
-
+          let visibleStart = Math.max(noteStart, wavePosition);
           visibleStart = Math.max(0, visibleStart);
-          visibleEnd = Math.min(1, visibleEnd);
+          const visibleEnd = Math.min(1, noteEnd);
 
           if (visibleStart < visibleEnd) {
+              allNotesGone = false;
               const startX = leftMargin + (visibleStart * effectiveWidth);
               const w = (visibleEnd - visibleStart) * effectiveWidth;
               const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
@@ -429,48 +456,32 @@ export const drawPreviousNotes = (p, notes, settings, timeSinceTransition, delay
               p.rect(startX, y, w, noteH);
           }
       }
-      return false;
+      return allNotesGone;
   }
-
-  // --- MODE 2: WIPE (经典翻页) ---
-  else {
-      // wipeProgress 是新小节的播放进度 (0.0 - 1.0)
-      // 光标走到哪，旧音符就消失在哪
+  else { // 'wipe' mode
       const wipeLine = wipeProgress;
-
       if (wipeLine > 1.1) return true;
-
       for (let n of notes) {
           const noteStart = n.ratioX;
           const noteEnd = n.ratioX + n.ratioW;
-
-          // 完全在光标左侧 -> 不画
           if (noteEnd < wipeLine) continue;
 
+          allNotesGone = false;
           p.fill(n.color);
+          const visibleStart = Math.max(noteStart, wipeLine);
 
-          // 跨越光标 -> 画右半部分
-          if (noteStart < wipeLine) {
-              const visibleStart = wipeLine;
-              const visibleEnd = noteEnd;
-              if (visibleStart < visibleEnd) {
-                  const startX = leftMargin + (visibleStart * effectiveWidth);
-                  const w = (visibleEnd - visibleStart) * effectiveWidth;
-                  const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
-                  p.rect(startX, y, w, noteH);
-              }
-          }
-          // 完全在光标右侧 -> 全画
-          else {
-              const startX = leftMargin + (noteStart * effectiveWidth);
-              const w = (noteEnd - noteStart) * effectiveWidth;
+          if (visibleStart < noteEnd) {
+              const startX = leftMargin + (visibleStart * effectiveWidth);
+              const w = (noteEnd - visibleStart) * effectiveWidth;
               const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
               p.rect(startX, y, w, noteH);
           }
       }
-      return false;
+      return allNotesGone;
   }
 };
+
+
 
 export const drawCursor = (p, x, isVisible = true) => {
   if (!isVisible) return;
