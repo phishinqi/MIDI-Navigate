@@ -1,0 +1,45 @@
+// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/ThreeJsSettings.jsx
+import React from 'react';
+import useStore from '@/store/useStore';
+import { MoveHorizontal, MoveVertical, ArrowRightLeft, Video, ScanLine, GripVertical, MousePointer2 } from 'lucide-react';
+import * as Slider from '@radix-ui/react-slider';
+
+const ThreeJsSettings = () => {
+    const viewSettings = useStore(state => state.viewSettings);
+    const setViewSettings = useStore(state => state.setViewSettings);
+
+    const toggleBgOn = 'bg-midi-accent';
+    const toggleBgOff = 'bg-white/10';
+    const toggleDot = 'bg-white shadow-sm';
+    const toggleClassOn = 'left-[18px]';
+    const toggleClassOff = 'left-0.5';
+
+    return (
+        <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Viewport (Three.js)</h3>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><MoveHorizontal size={12} /> Time Scale</span> <span className="font-mono">{viewSettings.zoomX}x</span></div>
+                    <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[viewSettings.zoomX]} min={10} max={200} step={5} onValueChange={(v) => setViewSettings({ zoomX: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><MoveVertical size={12} /> Vertical Zoom</span> <span className="font-mono">{viewSettings.zoomY}x</span></div>
+                    <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[viewSettings.zoomY]} min={0.5} max={3.0} step={0.1} onValueChange={(v) => setViewSettings({ zoomY: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                </div>
+            </div>
+            <div className="space-y-2">
+                <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><ArrowRightLeft size={12} /> Playhead Position</span> <span className="font-mono">{Math.round((viewSettings.playheadOffset || 0.2) * 100)}%</span></div>
+                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[viewSettings.playheadOffset || 0.2]} min={0.1} max={0.9} step={0.05} onValueChange={(v) => setViewSettings({ playheadOffset: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+            </div>
+            <div className="flex flex-col gap-2 bg-white/5 p-2 rounded-lg">
+                {[{ l: 'Follow Playhead', k: 'followCursor', i: Video }, { l: 'Show Playhead', k: 'showPlayhead', i: ScanLine }, { l: 'Show Bar Lines', k: 'showBarLines', i: GripVertical }, { l: 'Click to Seek', k: 'enableClickToSeek', i: MousePointer2 }].map(opt => (
+                <div key={opt.k} className="flex items-center justify-between p-2 hover:bg-white/5 rounded transition-colors cursor-pointer" onClick={() => setViewSettings({ [opt.k]: !viewSettings[opt.k] })}>
+                    <div className="flex items-center gap-2 opacity-80"><opt.i size={14} /><span className="text-xs font-bold">{opt.l}</span></div>
+                    <div className={`w-8 h-4 rounded-full relative transition-colors ${viewSettings[opt.k] !== false ? toggleBgOn : toggleBgOff}`}><div className={`absolute top-0.5 w-3 h-3 rounded-full shadow-sm transition-all ${toggleDot} ${viewSettings[opt.k] !== false ? toggleClassOn : toggleClassOff}`} /></div>
+                </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+export default ThreeJsSettings;

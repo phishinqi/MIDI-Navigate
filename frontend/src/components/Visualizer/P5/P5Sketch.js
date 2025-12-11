@@ -113,7 +113,7 @@ export const createSketch = (containerRef) => (p) => {
     // --- Render Layers ---
 
     // Layer A: Percussion Grid
-    drawPercussionGrid(p, cachedDrumSteps, audioTime, percussionSettings);
+    drawPercussionGrid(p, cachedDrumSteps, audioTime, percussionSettings, backgroundColor);
 
     // Layer B: Previous Melodic Notes
     const timeSinceTransition = audioTime - transitionStartTime;

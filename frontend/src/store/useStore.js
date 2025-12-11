@@ -36,7 +36,7 @@ const useStore = create(
       toggleGlow: () => set(s => ({ isGlowEnabled: !s.isGlowEnabled })),
 
       // --- P5 Settings [整合版] ---
-p5Settings: {
+    p5Settings: {
         showCursor: true,
         shrinkSpeed: 0.08,
         showGrid: true,
@@ -161,6 +161,8 @@ p5Settings: {
       setChordDetectionMode: (mode) => set({ chordDetectionMode: mode }),
 
       // --- Data State ---
+      incomingMidiEvent: null,
+      setIncomingMidiEvent: (event) => set({ incomingMidiEvent: event }),
       rawFile: null,
       midiData: null,
       analysisData: null,
@@ -281,6 +283,7 @@ p5Settings: {
           mutedTrackIndices: []
       }),
     }),
+
     {
       name: 'midi-navigate-storage',
       storage: createJSONStorage(() => localStorage),

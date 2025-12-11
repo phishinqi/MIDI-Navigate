@@ -1,4 +1,4 @@
-// frontend/src/lib/theory.js
+89// frontend/src/lib/theory.js
 import { Chord, Note } from "@tonaljs/tonal";
 
 // --- Helpers ---
