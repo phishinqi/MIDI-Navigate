@@ -328,12 +328,26 @@ export const drawNotes = (p, notes, audioTime, settings, growCurve = [0.1, 0.85,
       const measureStart = notes[0]?.measureStart || 0;
       const measureDuration = notes[0]?.measureDuration || 4.0;
       const playheadRatio = (audioTime - measureStart) / measureDuration;
-      const FADE_START_RATIO = 0.45;
+
+      // 1. 获取用户定义的开始时间，如果没有设置则默认为 0.45
+      // 你可以在 settings 中添加一个 'fadeStartRatio' 字段
+      const FADE_START_RATIO = settings?.fadeStartRatio ?? 0.45;
+
       if (playheadRatio > FADE_START_RATIO) {
           const shrinkSetting = settings?.shrinkSpeed || 0.08;
           const speedFactor = shrinkSetting * 20.0;
+
+          // 计算从开始点到小节结束的线性进度 (0.0 -> 1.0)
           const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
-          const easedP = Math.pow(linearP, 4);
+
+          // 2. 使用 fadeCurve 生成缓动函数
+          // 如果 settings.fadeCurve 不存在，使用默认的较陡峭的曲线 [0.6, 0.05, 0.9, 0.9] 模拟之前的 pow(4) 效果
+          const fadeCurve = settings?.fadeCurve || [0.6, 0.05, 0.9, 0.9];
+          const fadeEaser = createBezier(...fadeCurve);
+
+          // 3. 应用曲线
+          const easedP = fadeEaser(linearP);
+
           const maxPossibleCut = speedFactor * 0.5;
           globalClipRatio = easedP * maxPossibleCut;
       }

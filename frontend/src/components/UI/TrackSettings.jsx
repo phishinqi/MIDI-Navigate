@@ -1,4 +1,4 @@
-// frontend/src/components/UI/TrackSettings.jsx
+// src/components/UI/TrackSettings.jsx
 import React, { useState } from 'react';
 import useStore from '@/store/useStore';
 import { Settings, X } from 'lucide-react';
@@ -10,9 +10,12 @@ import HelpTab from './SettingsTabs/HelpTab';
 
 const TrackSettings = ({ onClose, isLight }) => {
   const midiData = useStore(state => state.midiData);
-  const [activeTab, setActiveTab] = useState('mixer');
 
-  if (!midiData) return null;
+  // 修改 1: 如果没有 MIDI 数据，默认显示 'interface' 标签页，而不是 'mixer'
+  const [activeTab, setActiveTab] = useState(midiData ? 'mixer' : 'interface');
+
+  // 修改 2: 移除了 if (!midiData) return null; 这行代码
+  // 让弹窗在没有数据时也能渲染
 
   const modalBg = 'bg-midi-black/95 border-midi-gray text-white backdrop-blur-xl';
   const headerBg = 'bg-white/5 border-white/10';
@@ -21,7 +24,13 @@ const TrackSettings = ({ onClose, isLight }) => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'mixer': return <MixerTab />;
+      case 'mixer':
+        // 修改 3: 保护 MixerTab，如果没有 MIDI 数据，显示提示信息，防止报错
+        return midiData ? <MixerTab /> : (
+            <div className="flex items-center justify-center h-64 text-white/30 italic">
+                No MIDI loaded. Mixer controls are disabled.
+            </div>
+        );
       case 'interface': return <InterfaceTab />;
       case 'grid': return <GridTab />;
       case 'debug': return <DebugTab />;
@@ -45,7 +54,13 @@ const TrackSettings = ({ onClose, isLight }) => {
             </div>
             <div className="flex px-5 gap-6 mt-2 overflow-x-auto no-scrollbar">
                 {['mixer', 'interface', 'grid', 'debug', 'help'].map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-all uppercase whitespace-nowrap ${activeTab === tab ? activeTabClass : `border-transparent ${inactiveTabClass}`}`}>{tab}</button>
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-all uppercase whitespace-nowrap ${activeTab === tab ? activeTabClass : `border-transparent ${inactiveTabClass}`}`}
+                    >
+                        {tab}
+                    </button>
                 ))}
             </div>
         </div>

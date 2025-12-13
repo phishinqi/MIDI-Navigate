@@ -50,7 +50,8 @@ function App() {
         case 'KeyO': e.preventDefault(); handleGlobalFileUpload(); break;
         case 'KeyM': e.preventDefault(); toggleMute(); break;
         case 'KeyZ': e.preventDefault(); toggleZenMode(); break;
-        case 'KeyS': e.preventDefault(); if (midiData) setShowSettings((prev) => !prev); break;
+        // 修改：移除了 if (midiData) 检查，允许随时打开设置
+        case 'KeyS': e.preventDefault(); setShowSettings((prev) => !prev); break;
         default: break;
       }
     };
@@ -105,7 +106,6 @@ function App() {
           )}
         </main>
 
-        {/* ✅ [核心修复] 移除了 "contents" 类 */}
         {midiData && (
           <>
             <div className={`transition-opacity duration-300 ${showPlayerWidget ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -119,11 +119,10 @@ function App() {
       </div>
 
       <div className={`absolute top-6 right-6 z-[60] flex items-center gap-3 transition-opacity duration-500 ${isZenMode ? 'opacity-0 hover:opacity-100' : 'opacity-100'} pointer-events-auto`}>
-        {midiData && (
-          <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-all backdrop-blur-sm cursor-pointer ${btnClass}`} title="Settings [S]">
-            <Settings size={20} />
-          </button>
-        )}
+        {/* 修改：移除了 {midiData && (...)} 包裹，使设置按钮常驻显示 */}
+        <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-all backdrop-blur-sm cursor-pointer ${btnClass}`} title="Settings [S]">
+          <Settings size={20} />
+        </button>
         <button onClick={toggleZenMode} className={`p-2 rounded-full transition-all backdrop-blur-sm cursor-pointer ${btnClass}`} title="Zen Mode [Z]">
           {isZenMode ? <EyeOff size={20} /> : <Eye size={20} />}
         </button>
