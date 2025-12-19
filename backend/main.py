@@ -1,44 +1,66 @@
 # backend/main.py
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+import os
+import sys
+import webbrowser
 from typing import List
 
+import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# 假设这些模块在你的 app 目录下 (打包时需确保 app 文件夹在正确位置)
 from app.core.config import settings
 from app.api import endpoints
 
-# --- 1. 新增：WebSocket 连接管理器 ---
+
+# --- 1. 核心工具：资源路径获取 (兼容 PyInstaller) ---
+def get_resource_path(relative_path):
+    """
+    获取资源的绝对路径。
+    PyInstaller 会将资源解压到 sys._MEIPASS 临时文件夹中。
+    """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+
+# 定义前端构建输出目录 (对应 npm run build 生成的 dist)
+DIST_DIR = get_resource_path("dist")
+
+
+# --- 2. WebSocket 连接管理器 ---
 class ConnectionManager:
     def __init__(self):
-        # 存储所有活跃的 WebSocket 连接
         self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
-        """接受新的 websocket 连接并将其添加到列表中"""
         await websocket.accept()
         self.active_connections.append(websocket)
-        print(f"New client connected. Total clients: {len(self.active_connections)}")
+        # print(f"New client connected. Total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
-        """从列表中移除断开的 websocket 连接"""
-        self.active_connections.remove(websocket)
-        print(f"Client disconnected. Remaining clients: {len(self.active_connections)}")
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            # print(f"Client disconnected. Remaining: {len(self.active_connections)}")
 
     async def broadcast(self, message: str):
-        """将消息广播给所有连接的客户端"""
-        # 这是核心功能：将来自 VST 的消息转发给所有浏览器页面
         for connection in self.active_connections:
-            await connection.send_text(message)
+            try:
+                await connection.send_text(message)
+            except Exception:
+                # 发送失败可能是连接已断开但尚未移除，安全起见忽略或移除
+                pass
 
-# 创建一个全局的 ConnectionManager 实例
+
 manager = ConnectionManager()
 
-
-# --- 2. 创建 FastAPI 应用 (您的原有代码) ---
+# --- 3. 创建 FastAPI 应用 ---
 app = FastAPI(title=settings.PROJECT_NAME)
 
-# 配置 CORS (您的原有代码)
+# 配置 CORS
 if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
@@ -48,38 +70,70 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-# --- 3. 新增：定义 WebSocket 端点 ---
+
+# --- 4. WebSocket 端点 ---
 @app.websocket("/ws/midi")
 async def websocket_endpoint(websocket: WebSocket):
-    # 当有新客户端（VST 或浏览器）连接时，接受并管理它
     await manager.connect(websocket)
     try:
-        # 无限循环，等待并接收来自该客户端的任何消息
         while True:
             data = await websocket.receive_text()
-            print(f"Received message: {data}") # 在后端终端打印收到的数据，用于调试
-            # 将收到的消息广播给所有连接的客户端
+            # print(f"Received: {data}")
             await manager.broadcast(data)
     except WebSocketDisconnect:
-        # 如果客户端断开连接，就从管理器中移除
         manager.disconnect(websocket)
-        print("A client disconnected.")
     except Exception as e:
-        # 处理其他可能的异常
-        print(f"An error occurred in websocket: {e}")
+        print(f"WebSocket error: {e}")
         manager.disconnect(websocket)
 
 
-# --- 4. 包含您的 HTTP API 路由 (您的原有代码) ---
+# --- 5. API 路由 (原有功能) ---
 app.include_router(endpoints.router, prefix=settings.API_V1_STR)
 
+# --- 6. 静态文件托管 (前端页面) ---
+# 只有当 dist 文件夹存在时才挂载，防止开发环境(未 build)报错
+if os.path.exists(DIST_DIR):
+    # 1. 挂载 assets (CSS, JS, Images)
+    # Vite 打包后，静态资源通常在 dist/assets 下
+    app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
 
-# --- 5. 启动服务器 (您的原有代码) ---
+    # 2. 挂载 ws 页面所需的静态资源 (如果 ws/index.html 依赖同级资源)
+    ws_dir = os.path.join(DIST_DIR, "ws")
+    if os.path.exists(ws_dir):
+        # 挂载 /ws 路径下的静态文件
+        app.mount("/ws", StaticFiles(directory=ws_dir, html=True), name="ws")
+
+
+    # 3. 处理主页路由 "/" -> 返回 index.html
+    @app.get("/")
+    async def read_index():
+        return FileResponse(os.path.join(DIST_DIR, "index.html"))
+
+
+    # 4. 处理 React 路由 (Fallback)
+    # 如果用户刷新页面或访问 React 内部路由，始终返回 index.html，交由前端路由处理
+    # 注意：这应该放在所有 API 路由之后
+    @app.exception_handler(404)
+    async def not_found_handler(request, exc):
+        # 如果是 API 请求，返回 404
+        if request.url.path.startswith("/api") or request.url.path.startswith("/ws/midi"):
+            return None
+            # 否则返回前端页面
+        return FileResponse(os.path.join(DIST_DIR, "index.html"))
+else:
+    print(f"警告: 未找到目录 '{DIST_DIR}'。请先运行 'npm run build'。")
+
+# --- 7. 启动服务器 ---
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8080,
-        reload=True,
-        reload_dirs=["app", "."]
-    )
+    # 自动打开浏览器
+    host = "0.0.0.0"
+    port = 8080
+    url = f"http://127.0.0.1:{port}"
+
+    print(f"Starting server at {url} ...")
+    webbrowser.open(url)
+
+    # 启动 Uvicorn
+    # 注意：打包成 EXE 时，reload 必须为 False，否则会产生多进程错误
+    # 传递 app 对象而不是字符串 "main:app"
+    uvicorn.run(app, host=host, port=port, log_level="info", reload=False)
