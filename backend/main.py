@@ -3,35 +3,41 @@
 import os
 import sys
 import webbrowser
+import logging
+import colorama
 from typing import List
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
-# 假设这些模块在你的 app 目录下 (打包时需确保 app 文件夹在正确位置)
 from app.core.config import settings
 from app.api import endpoints
 
 
-# --- 1. 核心工具：资源路径获取 (兼容 PyInstaller) ---
+# --- 1. 路径与配置 ---
 def get_resource_path(relative_path):
-    """
-    获取资源的绝对路径。
-    PyInstaller 会将资源解压到 sys._MEIPASS 临时文件夹中。
-    """
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath("."), relative_path)
+    if getattr(sys, 'frozen', False):
+        base_path = os.path.dirname(sys.executable)
+    else:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 
-# 定义前端构建输出目录 (对应 npm run build 生成的 dist)
-DIST_DIR = get_resource_path("dist")
+# 指向 dist 根目录
+DIST_ROOT = get_resource_path("dist")
+
+# 预先定义好关键文件的绝对路径
+PATH_ASSETS = os.path.join(DIST_ROOT, "assets")
+PATH_WS_DIR = os.path.join(DIST_ROOT, "ws")
+PATH_WS_HTML = os.path.join(PATH_WS_DIR, "index.html")
+PATH_FRONTEND_HTML = os.path.join(DIST_ROOT, "frontend", "index.html")
+PATH_FAVICON = os.path.join(DIST_ROOT, "favicon.ico")
 
 
-# --- 2. WebSocket 连接管理器 ---
+# --- 2. WebSocket 管理器 ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -39,28 +45,24 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        # print(f"New client connected. Total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            # print(f"Client disconnected. Remaining: {len(self.active_connections)}")
 
     async def broadcast(self, message: str):
         for connection in self.active_connections:
             try:
                 await connection.send_text(message)
             except Exception:
-                # 发送失败可能是连接已断开但尚未移除，安全起见忽略或移除
                 pass
 
 
 manager = ConnectionManager()
 
-# --- 3. 创建 FastAPI 应用 ---
+# --- 3. App 初始化 ---
 app = FastAPI(title=settings.PROJECT_NAME)
 
-# 配置 CORS
 if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
@@ -71,69 +73,118 @@ if settings.BACKEND_CORS_ORIGINS:
     )
 
 
-# --- 4. WebSocket 端点 ---
+# --- 4. WebSocket 路由 ---
 @app.websocket("/ws/midi")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
-            # print(f"Received: {data}")
             await manager.broadcast(data)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:
-        print(f"WebSocket error: {e}")
         manager.disconnect(websocket)
 
 
-# --- 5. API 路由 (原有功能) ---
+# --- 5. API 路由 ---
 app.include_router(endpoints.router, prefix=settings.API_V1_STR)
 
-# --- 6. 静态文件托管 (前端页面) ---
-# 只有当 dist 文件夹存在时才挂载，防止开发环境(未 build)报错
-if os.path.exists(DIST_DIR):
-    # 1. 挂载 assets (CSS, JS, Images)
-    # Vite 打包后，静态资源通常在 dist/assets 下
-    app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
+# --- 6. 静态文件与前端托管 [终极修正版] ---
 
-    # 2. 挂载 ws 页面所需的静态资源 (如果 ws/index.html 依赖同级资源)
-    ws_dir = os.path.join(DIST_DIR, "ws")
-    if os.path.exists(ws_dir):
-        # 挂载 /ws 路径下的静态文件
-        app.mount("/ws", StaticFiles(directory=ws_dir, html=True), name="ws")
+# 启动时打印调试信息 (方便在控制台确认路径)
+print("-" * 50)
+print(f"Path Check:")
+print(f"Root: {DIST_ROOT}")
+print(f"Assets: {PATH_ASSETS} -> {os.path.exists(PATH_ASSETS)}")
+print(f"WS HTML: {PATH_WS_HTML} -> {os.path.exists(PATH_WS_HTML)}")
+print(f"Main HTML: {PATH_FRONTEND_HTML} -> {os.path.exists(PATH_FRONTEND_HTML)}")
+print("-" * 50)
+
+if os.path.exists(DIST_ROOT):
+    # A. 挂载公共资源 /assets (优先级最高)
+    if os.path.exists(PATH_ASSETS):
+        app.mount("/assets", StaticFiles(directory=PATH_ASSETS), name="assets")
 
 
-    # 3. 处理主页路由 "/" -> 返回 index.html
+    # B. [WS 界面] 显式处理
+    # 1. 访问 /ws/index.html 时，重定向到 /ws (规范 URL)
+    @app.get("/ws/index.html")
+    async def redirect_ws():
+        return RedirectResponse(url="/ws")
+
+
+    # 2. 访问 /ws 或 /ws/ 时，直接返回 HTML 文件
+    @app.get("/ws")
+    @app.get("/ws/")
+    async def read_ws_page():
+        if os.path.exists(PATH_WS_HTML):
+            return FileResponse(PATH_WS_HTML)
+        return "Error: dist/ws/index.html missing", 404
+
+
+    # C. [主界面] 显式处理
     @app.get("/")
     async def read_index():
-        return FileResponse(os.path.join(DIST_DIR, "index.html"))
+        if os.path.exists(PATH_FRONTEND_HTML):
+            return FileResponse(PATH_FRONTEND_HTML)
+        return "Error: dist/frontend/index.html missing", 404
 
 
-    # 4. 处理 React 路由 (Fallback)
-    # 如果用户刷新页面或访问 React 内部路由，始终返回 index.html，交由前端路由处理
-    # 注意：这应该放在所有 API 路由之后
+    # D. Favicon
+    @app.get("/favicon.ico")
+    async def favicon():
+        if os.path.exists(PATH_FAVICON):
+            return FileResponse(PATH_FAVICON)
+        return None, 404
+
+
+    # E. 404 兜底 (SPA 路由支持)
     @app.exception_handler(404)
     async def not_found_handler(request, exc):
-        # 如果是 API 请求，返回 404
-        if request.url.path.startswith("/api") or request.url.path.startswith("/ws/midi"):
-            return None
-            # 否则返回前端页面
-        return FileResponse(os.path.join(DIST_DIR, "index.html"))
-else:
-    print(f"警告: 未找到目录 '{DIST_DIR}'。请先运行 'npm run build'。")
+        path = request.url.path
 
-# --- 7. 启动服务器 ---
+        # 排除 API, WS, Assets，防止它们被错误地重定向到主页
+        if path.startswith(("/api", "/ws", "/assets")):
+            return None  # 返回真正的 404
+
+        # 其他未知路径认为是前端路由，返回主页
+        if os.path.exists(PATH_FRONTEND_HTML):
+            return FileResponse(PATH_FRONTEND_HTML)
+        return None
+
+else:
+    print("WARNING: 'dist' folder not found. Running in API-only mode.")
+
+# --- 7. 启动逻辑 (含 colorama 和 WebSocket 修复) ---
 if __name__ == "__main__":
-    # 自动打开浏览器
+
+    # 初始化颜色
+    colorama.init(autoreset=True)
+
+    # [已修改] 移除文件日志配置，仅保留基础配置（默认输出到控制台/stderr）
+    # 这样就不会在文件夹里生成 server_debug.log 了
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # stdout 重定向处理 (防止无控制台模式报错)
+    if sys.stdout is None: sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None: sys.stderr = open(os.devnull, "w")
+
     host = "0.0.0.0"
     port = 8080
     url = f"http://127.0.0.1:{port}"
+    ws_url = f"http://127.0.0.1:{port}/ws"
 
-    print(f"Starting server at {url} ...")
-    webbrowser.open(url)
+    try:
+        webbrowser.open(url)
+        print(f"Main App: {url}")
+        print(f"WS Test:  {ws_url}")
 
-    # 启动 Uvicorn
-    # 注意：打包成 EXE 时，reload 必须为 False，否则会产生多进程错误
-    # 传递 app 对象而不是字符串 "main:app"
-    uvicorn.run(app, host=host, port=port, log_level="info", reload=False)
+        # 启动 uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="info", reload=False, use_colors=True)
+
+    except Exception as e:
+        # 如果崩溃，仅在控制台打印错误，不再写文件
+        logging.error(f"Crash: {str(e)}", exc_info=True)
+        print(f"Crash: {str(e)}")
