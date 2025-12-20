@@ -1,4 +1,3 @@
-// frontend/src/store/useStore.js
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
@@ -36,7 +35,7 @@ const useStore = create(
       toggleGlow: () => set(s => ({ isGlowEnabled: !s.isGlowEnabled })),
 
       // --- P5 Settings [整合版] ---
-    p5Settings: {
+      p5Settings: {
         showCursor: true,
         shrinkSpeed: 0.08,
         showGrid: true,
@@ -45,10 +44,13 @@ const useStore = create(
         horizontalZoom: 1.0,
         noteHeight: 6,
         pageTurnMode: 'wipe',
+
+        // [NEW] 新增配置：每页显示多少个小节
+        measuresPerPage: 1,
+
         growCurve: [0.1, 0.85, 0.75, 0.9],
         meteorHoldTime: 0.5,
         meteorFadeTime: 1.5,
-        // *** 1. 新增 fadeCurve，并设置一个默认的“慢进快出”曲线 ***
         fadeCurve: [0.42, 0, 1, 1],
         curvePresets: [
             { name: 'Default Plateau', curve: [0.1, 0.85, 0.75, 0.9], isDefault: true },
@@ -92,36 +94,30 @@ const useStore = create(
         enabled: true,
         rows: 4,
         cols: 8,
-        // Three.js 参数
         cellSize: 1.5,
         spacing: 0.2,
         positionY: -15,
         positionZ: -20,
         decaySpeed: 0.08,
-        // P5 专属参数
         p5CellSize: 40,
         p5Spacing: 10,
       },
 
-      // 拦截设置，自动处理轨道可见性
       setPercussionSettings: (settings) => set((state) => {
         const newSettings = { ...state.percussionSettings, ...settings };
         const midiData = state.midiData;
 
-        // 如果 'enabled' 状态发生改变，且有 MIDI 数据
         if (midiData && settings.enabled !== undefined && settings.enabled !== state.percussionSettings.enabled) {
             const drumIndices = getDrumTrackIndices(midiData.tracks);
             let newVisibleIndices = [...state.visibleTrackIndices];
 
             if (newSettings.enabled) {
-                // 开启 Grid -> 隐藏主视图中的打击乐轨道
                 newVisibleIndices = newVisibleIndices.filter(i => !drumIndices.includes(i));
             } else {
-                // 关闭 Grid -> 恢复主视图中的打击乐轨道
                 drumIndices.forEach(i => {
                     if (!newVisibleIndices.includes(i)) newVisibleIndices.push(i);
                 });
-                newVisibleIndices.sort((a, b) => a - b); // 保持索引顺序
+                newVisibleIndices.sort((a, b) => a - b);
             }
 
             return {
@@ -214,11 +210,9 @@ const useStore = create(
       isRecording: false,
       setIsRecording: (val) => set({ isRecording: val }),
 
-      // --- setMidiData: 智能轨道分析 ---
       setMidiData: (data, file) => {
         const { percussionSettings } = get();
 
-        // 1. 智能分析：自动识别钢琴轨作为分析对象
         const pianoIndices = data.tracks.map((t, i) => ({ t, i }))
           .filter(({ t }) => {
             const name = (t.instrument?.name || t.name || "").toLowerCase();
@@ -228,7 +222,6 @@ const useStore = create(
 
         const defaultAnalysisIndices = pianoIndices.length > 0 ? pianoIndices : data.tracks.map((_, i) => i);
 
-        // 2. 智能可见性：根据打击乐设置自动过滤轨道
         const drumIndices = getDrumTrackIndices(data.tracks);
         let initialVisibleIndices = data.tracks.map((_, i) => i);
 
@@ -287,39 +280,27 @@ const useStore = create(
     {
       name: 'midi-navigate-storage',
       storage: createJSONStorage(() => localStorage),
-      // *** 3. 持久化设置更新 ***
       partialize: (state) => ({
-        // 仅持久化用户偏好设置
         backgroundColor: state.backgroundColor,
         autoTextContrast: state.autoTextContrast,
         forceDarkText: state.forceDarkText,
         isGlowEnabled: state.isGlowEnabled,
         renderEngine: state.renderEngine,
-
-        // 分析设置
         analysisSensitivity: state.analysisSensitivity,
         analysisComplexity: state.analysisComplexity,
         chordDetectionMode: state.chordDetectionMode,
-
-        // UI 状态
         selectedMidiOutput: state.selectedMidiOutput,
         showPlayerWidget: state.showPlayerWidget,
         showAnalysisWidget: state.showAnalysisWidget,
         viewSettings: state.viewSettings,
-
-        // 引擎专属设置
         percussionSettings: state.percussionSettings,
-        p5Settings: state.p5Settings, // 现在包含了 growCurve 和 curvePresets
+        p5Settings: state.p5Settings,
       }),
-      version: 8, // 升级版本号，确保结构变更生效
+      version: 9, // Version bumped
       migrate: (persistedState, version) => {
-          // 之前的版本处理
-          if (version < 7) {
+          if (version < 9) {
               return {};
           }
-          // 对于版本 7，我们可以尝试保留数据，但由于 p5Settings 结构变化较小，
-          // 直接返回 persistedState 通常是安全的，或者为了保险起见，重置 p5Settings
-          // 这里保持原有的保守策略
           return persistedState;
       },
     }

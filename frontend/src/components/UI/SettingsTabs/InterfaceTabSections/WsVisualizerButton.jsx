@@ -1,8 +1,10 @@
 // frontend/src/components/UI/SettingsTabs/InterfaceTabSections/WsVisualizerButton.jsx
 import React from 'react';
 import { ExternalLink, Wifi } from 'lucide-react';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const WsVisualizerButton = () => {
+  const { t } = useTranslation(); // 2. 初始化
 
   const openWsVisualizer = () => {
     // 定义新窗口的 URL
@@ -20,7 +22,7 @@ const WsVisualizerButton = () => {
   return (
     <div className="space-y-4">
         <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
-            Standalone Visualizer
+            {t('ws_visualizer.title', { defaultValue: 'Standalone Visualizer' })}
         </h3>
         <button
             onClick={openWsVisualizer}
@@ -28,12 +30,12 @@ const WsVisualizerButton = () => {
         >
             <div className="flex items-center gap-2">
                 <Wifi size={16} className="opacity-70 group-hover:opacity-100" />
-                <span>Open WebSocket Visualizer</span>
+                <span>{t('ws_visualizer.button', { defaultValue: 'Open WebSocket Visualizer' })}</span>
             </div>
             <ExternalLink size={14} className="opacity-50 group-hover:opacity-90" />
         </button>
         <p className="text-[10px] text-white/40 text-center">
-            Opens a high-performance visualizer in a new window, ideal for direct VST/DAW connection.
+            {t('ws_visualizer.description', { defaultValue: 'Opens a high-performance visualizer in a new window, ideal for direct VST/DAW connection.' })}
         </p>
     </div>
   );

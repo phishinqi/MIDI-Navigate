@@ -472,22 +472,34 @@ export const drawPreviousNotes = (p, notes, audioTime, settings, timeSinceTransi
       }
       return allNotesGone;
   }
-  else { // 'wipe' mode
+    else { // 'wipe' mode
       const wipeLine = wipeProgress;
       if (wipeLine > 1.1) return true;
+
       for (let n of notes) {
           const noteStart = n.ratioX;
           const noteEnd = n.ratioX + n.ratioW;
+
+          // 如果音符结束位置在扫描线左侧，则无需绘制
           if (noteEnd < wipeLine) continue;
 
           allNotesGone = false;
           p.fill(n.color);
+
+          // 计算可视的起始位置（被扫描线吃掉的部分）
           const visibleStart = Math.max(noteStart, wipeLine);
 
-          if (visibleStart < noteEnd) {
+          // [FIX] 关键修复：计算可视的结束位置（限制在页面右边界 1.0 以内）
+          // 防止音符绘制超出 effectiveWidth 区域
+          const visibleEnd = Math.min(noteEnd, 1.0);
+
+          // 只有当 起始点 < 结束点 时才绘制（防止负宽度）
+          if (visibleStart < visibleEnd) {
               const startX = leftMargin + (visibleStart * effectiveWidth);
-              const w = (noteEnd - visibleStart) * effectiveWidth;
+              // 宽度计算使用修正后的 visibleEnd
+              const w = (visibleEnd - visibleStart) * effectiveWidth;
               const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+
               p.rect(startX, y, w, noteH);
           }
       }

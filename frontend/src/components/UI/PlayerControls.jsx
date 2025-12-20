@@ -3,8 +3,10 @@ import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import useStore from '@/store/useStore';
 import { audioEngine } from '@/audio/AudioEngine';
 import * as Slider from '@radix-ui/react-slider';
+import { useTranslation } from 'react-i18next'; // 引入 hook
 
 const PlayerControls = ({ isLight }) => {
+  const { t } = useTranslation(); // 初始化 hook
   const isPlaying = useStore((state) => state.isPlaying);
   const setIsPlaying = useStore((state) => state.setIsPlaying);
   const midiData = useStore((state) => state.midiData);
@@ -85,7 +87,6 @@ const PlayerControls = ({ isLight }) => {
             return { time: seconds, n: m.timeSignature[0], d: m.timeSignature[1] };
         }).sort((a, b) => a.time - b.time);
     }
-    // 确保 meterMap 至少有一个初始值
     if (meterMap.length === 0) meterMap.push({ time: 0, n: 4, d: 4 });
     if (meterMap[0].time > 0) meterMap.unshift({ time: 0, n: 4, d: 4 });
 
@@ -96,55 +97,38 @@ const PlayerControls = ({ isLight }) => {
   const meterInfo = useMemo(() => {
     if (!maps.meterMap.length) return { bar: 1, currentBeatIndex: 0, beatsPerBar: 4 };
 
-    // 1. 积分计算总 Beats 数
-    // 我们需要计算从 t=0 到 t=currentTime 的总 Beats 数
-    // 这需要同时遍历 MeterMap (获取分母) 和 TempoMap (获取BPM)
-
-    // 简化版积分：我们把时间轴切碎成片段，每个片段内 BPM 和 Meter 都是恒定的
-    // 关键事件点：所有 Tempo 变化点 + 所有 Meter 变化点 + CurrentTime
     const events = [
         ...maps.tempoMap.map(t => ({ t: t.time, type: 'tempo', val: t.bpm })),
-        ...maps.meterMap.map(m => ({ t: m.time, type: 'meter', val: m })), // val is {n, d}
+        ...maps.meterMap.map(m => ({ t: m.time, type: 'meter', val: m })),
         { t: currentTime, type: 'cursor' }
     ].sort((a, b) => a.t - b.t);
 
-    let totalMeasures = 0; // 累计小节数
+    let totalMeasures = 0;
     let currentBpm = 120;
     if (maps.tempoMap.length) currentBpm = maps.tempoMap[0].bpm;
 
-    let currentMeter = maps.meterMap[0]; // {n, d}
+    let currentMeter = maps.meterMap[0];
     let lastTime = 0;
 
-    // 遍历时间轴
     for (const ev of events) {
-        if (ev.t > currentTime) break; // 超过当前时间停止
+        if (ev.t > currentTime) break;
         if (ev.t < 0) continue;
 
         const dt = ev.t - lastTime;
         if (dt > 0) {
-            // 计算这段时间内经过了多少个 Beat (四分音符基准)
             const beats = dt * (currentBpm / 60);
-
-            // 将 Beat 转换为 Measure (小节)
-            // 1 小节 = Numerator * (1拍的时长)
-            // 1 拍时长(以四分音符计) = 4 / Denominator
-            // 所以 1 小节的四分音符量 = Numerator * (4 / Denominator)
             const beatsPerMeasure = currentMeter.n * (4 / currentMeter.d);
-
             totalMeasures += beats / beatsPerMeasure;
         }
 
-        // 更新状态
         lastTime = ev.t;
         if (ev.type === 'tempo') currentBpm = ev.val;
         if (ev.type === 'meter') currentMeter = ev.val;
     }
 
-    // 此时 totalMeasures 是一个浮点数，例如 4.25 表示第 5 小节的第 2 拍 (如果是 4/4)
     const currentBar = Math.floor(totalMeasures) + 1;
-    const measureProgress = totalMeasures % 1; // 0.0 ~ 0.99
+    const measureProgress = totalMeasures % 1;
 
-    // 计算当前是第几拍
     const currentBeatIndex = Math.floor(measureProgress * currentMeter.n);
 
     return {
@@ -172,8 +156,12 @@ const PlayerControls = ({ isLight }) => {
           <button onClick={togglePlay} className={`mb-3 mr-2 hover:text-midi-accent hover:scale-110 transition-all ${isLight ? 'text-black/60' : 'text-white/60'}`}>
             {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
           </button>
+
+          {/* MIN */}
           <div className="flex flex-col gap-1 group cursor-pointer w-16">
-             <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>MIN</span>
+             <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>
+                 {t('controls.min', { defaultValue: 'MIN' })}
+             </span>
              <span className="text-4xl font-mono font-bold tracking-tighter leading-none">{timeObj.mins}</span>
              <div className="h-1 w-full mt-1 relative flex items-center">
                 <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentTime]} max={duration} step={0.01} onValueChange={handleSeek}>
@@ -182,13 +170,21 @@ const PlayerControls = ({ isLight }) => {
                 </Slider.Root>
              </div>
           </div>
+
+          {/* SEC */}
           <div className="flex flex-col gap-1 w-16 opacity-80">
-             <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>SEC</span>
+             <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>
+                {t('controls.sec', { defaultValue: 'SEC' })}
+             </span>
              <span className="text-4xl font-mono font-bold tracking-tighter leading-none">{timeObj.secs}</span>
              <div className={`h-1 w-full mt-1 relative rounded-full overflow-hidden ${trackBg}`}><div className={`h-full ${trackFill}`} style={{ width: `${secProgress}%`, transition: 'width 0.1s linear' }} /></div>
           </div>
+
+          {/* MS */}
           <div className="flex flex-col gap-1 w-20 opacity-60">
-             <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>MS</span>
+             <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>
+                 {t('controls.ms', { defaultValue: 'MS' })}
+             </span>
              <span className={`text-4xl font-mono font-bold tracking-tighter leading-none ${msTextColor}`}>{timeObj.ms}</span>
              <div className={`h-1 w-full mt-1 relative rounded-full overflow-hidden ${trackBg}`}><div className="h-full bg-midi-accent" style={{ width: `${msProgress}%` }} /></div>
           </div>
@@ -197,13 +193,13 @@ const PlayerControls = ({ isLight }) => {
 
       {/* Meter Section (Global Bar Count) */}
       <div className={`flex flex-col gap-1 pointer-events-auto w-24 ${textColor}`}>
-         <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>MEASURE</span>
-         {/* [FIX] 显示绝对小节号 */}
+         <span className={`text-[10px] font-mono tracking-widest uppercase ${textDim}`}>
+             {t('controls.measure', { defaultValue: 'MEASURE' })}
+         </span>
          <span className="text-4xl font-mono font-bold tracking-tighter leading-none">
              {meterInfo.bar.toString().padStart(3, '0')}
          </span>
          <div className="h-1 mt-1 flex items-center gap-2">
-            {/* 动态圆点 (Beat Index) */}
             {Array.from({ length: meterInfo.beatsPerBar }).map((_, i) => {
                 const isActive = meterInfo.currentBeatIndex === i;
                 const isDownbeat = i === 0;

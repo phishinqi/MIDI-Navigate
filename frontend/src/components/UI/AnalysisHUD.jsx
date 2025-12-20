@@ -4,6 +4,7 @@ import useStore from '@/store/useStore';
 import { Zap, Waves, Loader2, ChevronDown, ChevronUp, Activity, Server, Cpu } from 'lucide-react';
 import { getActiveNoteDetails, areNotesEqual, detectLocalChord } from '@/lib/theory';
 import { api } from '@/lib/api';
+import { useTranslation } from 'react-i18next'; // 1. 引入 i18n
 
 // --- FPS Hook ---
 const useFps = () => {
@@ -114,6 +115,7 @@ const KeyTimeline = ({ timeline, duration, currentTime, globalKey }) => {
 
 // --- MAIN COMPONENT ---
 const AnalysisHUD = ({ isLight }) => {
+  const { t } = useTranslation(); // 2. 初始化 Hook
   const {
     analysisData,
     midiData,
@@ -121,7 +123,7 @@ const AnalysisHUD = ({ isLight }) => {
     currentTime,
     analysisTrackIndices,
     visibleTrackIndices,
-    chordDetectionMode // 'tonal' (smart) | 'legacy' (local)
+    chordDetectionMode
   } = useStore();
 
   const [chordData, setChordData] = useState({ name: "---", confidence: 0, source: 'local', aliases: [] });
@@ -157,14 +159,10 @@ const AnalysisHUD = ({ isLight }) => {
     if (!midiData) return;
     const targetIndices = analysisTrackIndices.length > 0 ? analysisTrackIndices : visibleTrackIndices;
 
-    // 1. Active Notes (High Frequency)
     const currentNotes = getActiveNoteDetails(midiData, currentTime, targetIndices, 0);
 
-    // 2. Check for changes
     if (!areNotesEqual(prevNotesRef.current, currentNotes)) {
         prevNotesRef.current = currentNotes;
-
-        // Update Names
         const noteNames = [...new Set(currentNotes.map(n => n.name.replace(/\d+/, '')))].sort();
         setActiveNoteNames(noteNames);
 
@@ -175,31 +173,24 @@ const AnalysisHUD = ({ isLight }) => {
              return;
         }
 
-        // A. Local Instant Response (Always run first)
         const localResult = detectLocalChord(midiNumbers);
         setChordData({ ...localResult, source: 'local', aliases: [] });
 
-        // B. Server Deep Analysis (Async with Debounce)
-        // [MODIFIED] Added 'tonal' check to ensure compatibility with TrackSettings
         if (chordDetectionMode === 'tonal' || chordDetectionMode === 'server') {
             if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
             setIsServerPending(true);
             debounceTimerRef.current = setTimeout(async () => {
                 try {
-                    // [FIX] 强制转换数据类型以避免 422 错误
                     const apiPayload = currentNotes
-                        .filter(n => typeof n.midi === 'number') // 过滤无效音符
+                        .filter(n => typeof n.midi === 'number')
                         .map(n => ({
-                            pitch: Math.round(n.midi),             // 确保是整数
-                            velocity: Math.round((n.velocity || 0.5) * 127) // 将 0-1 小数转换为 0-127 MIDI 整数
+                            pitch: Math.round(n.midi),
+                            velocity: Math.round((n.velocity || 0.5) * 127)
                         }));
 
-                    // 只有当有有效音符时才发送请求
                     if (apiPayload.length > 0) {
                         const serverRes = await api.analyzeChord(apiPayload);
-
-                        // Only update if notes haven't changed again
                         if (areNotesEqual(prevNotesRef.current, currentNotes)) {
                             setChordData({
                                 name: serverRes.chord.name,
@@ -299,7 +290,9 @@ const AnalysisHUD = ({ isLight }) => {
              {/* Aliases / Alternatives List */}
              {chordData.aliases && chordData.aliases.length > 1 && (
                  <div className={`flex flex-col items-end gap-0.5 mt-2 animate-in slide-in-from-top-2 fade-in duration-300`}>
-                     <span className={`text-[8px] uppercase tracking-widest mb-0.5 opacity-50`}>Alternatives</span>
+                     <span className={`text-[8px] uppercase tracking-widest mb-0.5 opacity-50`}>
+                         {t('analysis.alternatives', { defaultValue: 'Alternatives' })}
+                     </span>
                      {chordData.aliases.slice(1, 4).map((alias, idx) => (
                          <span key={idx} className={`text-[10px] font-mono opacity-60 border-b border-dashed border-white/10`}>
                              {alias}
@@ -315,7 +308,9 @@ const AnalysisHUD = ({ isLight }) => {
         {/* Active Notes */}
         <div className="flex items-center gap-3 mt-2">
           <div className="text-right">
-             <div className={`text-[9px] uppercase tracking-widest ${textDim} mb-1`}>Active Notes</div>
+             <div className={`text-[9px] uppercase tracking-widest ${textDim} mb-1`}>
+                 {t('analysis.active_notes', { defaultValue: 'Active Notes' })}
+             </div>
              <div className="h-6 flex items-center justify-end gap-1 flex-wrap max-w-[200px]">
                {activeNoteNames.length > 0 ? ( activeNoteNames.map((note, i) => (<span key={i} className={`px-1.5 py-0.5 rounded text-xs font-mono border shadow-sm ${noteBg}`}>{note}</span>)) ) : <span className={`text-xs font-mono ${textDim}`}>...</span>}
              </div>
@@ -328,19 +323,24 @@ const AnalysisHUD = ({ isLight }) => {
       <div className={`flex flex-col items-end space-y-2 border rounded-xl p-4 transition-all duration-500 ${panelBg} ${borderCol} pointer-events-auto`}>
          <div className="flex items-center justify-between w-full gap-8">
              <button onClick={() => setIsExpanded(!isExpanded)} className={`text-[10px] uppercase tracking-[0.2em] flex items-center gap-1 hover:text-midi-accent transition-colors ${textDim}`}>
-                 <Activity size={12} /> Global Analysis {isExpanded ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+                 <Activity size={12} /> 
+                 {t('analysis.global_analysis', { defaultValue: 'Global Analysis' })} 
+                 {isExpanded ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
              </button>
 
              {/* FPS & Status */}
              <div className={`flex items-center gap-3 text-[9px] font-mono ${textDim}`}>
-                 <span>{isAnalyzing ? "Processing..." : "Ready"}</span>
+                 <span>{isAnalyzing ? t('analysis.processing', { defaultValue: 'Processing...' }) : t('analysis.ready', { defaultValue: 'Ready' })}</span>
                  <span className="w-px h-2 bg-current opacity-20"></span>
                  <span className={fps < 30 ? "text-red-500 font-bold" : ""}>{fps} FPS</span>
              </div>
          </div>
 
         {isAnalyzing ? (
-          <div className="flex items-center gap-4 opacity-50 animate-pulse py-2"><Loader2 size={12} className="animate-spin" /><span className="text-xs">Re-analyzing...</span></div>
+          <div className="flex items-center gap-4 opacity-50 animate-pulse py-2">
+            <Loader2 size={12} className="animate-spin" />
+            <span className="text-xs">{t('analysis.reanalyzing', { defaultValue: 'Re-analyzing...' })}</span>
+          </div>
         ) : (
           <div className="flex items-center gap-6 opacity-90 animate-in fade-in slide-in-from-right-4 duration-500">
              <div className="flex flex-col items-end"><span className={`text-[9px] ${textDim}`}>BPM</span><span className="font-bold font-mono tabular-nums">{dynamicStats.bpm}</span></div>
@@ -370,7 +370,7 @@ const AnalysisHUD = ({ isLight }) => {
         {isExpanded && !isAnalyzing && analysisData?.music_theory?.key_timeline && (
             <div className="w-full pt-2 animate-in slide-in-from-top-2 fade-in duration-300 border-t border-black/5 mt-2">
                 <div className="flex justify-between text-[9px] uppercase tracking-widest opacity-50 mb-1">
-                    <span>Structure & Modulation</span>
+                    <span>{t('analysis.structure', { defaultValue: 'Structure & Modulation' })}</span>
                     <span>{midiData.duration.toFixed(1)}s</span>
                 </div>
                 <KeyTimeline
@@ -380,8 +380,8 @@ const AnalysisHUD = ({ isLight }) => {
                     globalKey={analysisData.music_theory.key}
                 />
                 <div className="flex gap-2 mt-2 justify-end">
-                    <div className="flex items-center gap-1 text-[9px] opacity-50"><div className="w-2 h-2 rounded-full bg-red-400"></div> Major</div>
-                    <div className="flex items-center gap-1 text-[9px] opacity-50"><div className="w-2 h-2 rounded-full bg-blue-400"></div> Minor</div>
+                    <div className="flex items-center gap-1 text-[9px] opacity-50"><div className="w-2 h-2 rounded-full bg-red-400"></div> {t('analysis.major', { defaultValue: 'Major' })}</div>
+                    <div className="flex items-center gap-1 text-[9px] opacity-50"><div className="w-2 h-2 rounded-full bg-blue-400"></div> {t('analysis.minor', { defaultValue: 'Minor' })}</div>
                 </div>
             </div>
         )}

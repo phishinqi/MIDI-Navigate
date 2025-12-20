@@ -2,8 +2,10 @@
 import React, { useRef } from 'react';
 import useStore from '@/store/useStore';
 import { Download, Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const SystemConfig = () => {
+    const { t } = useTranslation(); // 2. 初始化
     const fileInputRef = useRef(null);
 
     const handleExportConfig = () => {
@@ -40,13 +42,14 @@ const SystemConfig = () => {
                 const data = JSON.parse(ev.target.result);
                 if (data.settings) {
                     useStore.setState(data.settings);
-                    alert("Configuration imported successfully!");
+                    // 使用翻译后的 alert
+                    alert(t('system_config.import_success', { defaultValue: "Configuration imported successfully!" }));
                 } else {
-                    alert("Invalid configuration file.");
+                    alert(t('system_config.import_invalid', { defaultValue: "Invalid configuration file." }));
                 }
             } catch (err) {
                 console.error(err);
-                alert("Failed to parse configuration file.");
+                alert(t('system_config.import_failed', { defaultValue: "Failed to parse configuration file." }));
             }
         };
         reader.readAsText(file);
@@ -55,15 +58,18 @@ const SystemConfig = () => {
 
     return (
         <div className="space-y-4 pt-4 border-t border-white/5">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">System</h3>
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+                {t('system_config.title', { defaultValue: 'System' })}
+            </h3>
+
             <div className="grid grid-cols-2 gap-4">
                 <button onClick={handleExportConfig} className="py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all group">
                     <Download size={18} className="opacity-50 group-hover:opacity-100 mb-1" />
-                    <span>Export Config</span>
+                    <span>{t('system_config.export', { defaultValue: 'Export Config' })}</span>
                 </button>
                 <button onClick={() => fileInputRef.current.click()} className="py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all group">
                     <Upload size={18} className="opacity-50 group-hover:opacity-100 mb-1" />
-                    <span>Import Config</span>
+                    <span>{t('system_config.import', { defaultValue: 'Import Config' })}</span>
                 </button>
                 <input type="file" ref={fileInputRef} onChange={handleImportConfig} accept=".json" className="hidden" />
             </div>

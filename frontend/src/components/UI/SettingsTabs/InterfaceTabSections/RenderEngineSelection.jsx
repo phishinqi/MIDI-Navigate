@@ -2,15 +2,19 @@
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Box, Monitor } from 'lucide-react';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const RenderEngineSelection = () => {
+    const { t } = useTranslation(); // 2. 初始化
     const renderEngine = useStore(state => state.renderEngine);
     const setRenderEngine = useStore(state => state.setRenderEngine);
 
     return (
         <div className="space-y-4">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">Render Engine</h3>
-            {/* 修改: grid-cols-3 改为 grid-cols-2，让两个按钮平分宽度 */}
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+                {t('render_engine.title', { defaultValue: 'Render Engine' })}
+            </h3>
+            {/* grid-cols-2 让两个按钮平分宽度 */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-black/20 rounded-lg">
                 <button
                     onClick={() => setRenderEngine('three')}

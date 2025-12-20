@@ -1,4 +1,3 @@
-// frontend/src/components/Visualizer/P5/P5Sketch.js
 import useStore from '@/store/useStore';
 import * as Tone from 'tone';
 import {
@@ -19,11 +18,13 @@ export const createSketch = (containerRef) => (p) => {
   let cachedDrumSteps = [];
 
   // Logic Flags
-  let cachedBarIndex = -2;
-  let lastBarIndex = -1;
+  let cachedPageIndex = -2; // 替换原有的 cachedBarIndex
+  let lastPageIndex = -1;   // 替换原有的 lastBarIndex
+  
   let lastMidiData = null;
   let lastVisibleTracksRef = null;
   let lastPercussionEnabledRef = null;
+  let lastMeasuresPerPage = -1; // 记录配置以便检测更改
 
   // 记录翻页时间与上一小节时长
   let transitionStartTime = 0;
@@ -40,7 +41,7 @@ export const createSketch = (containerRef) => (p) => {
   p.windowResized = () => {
     if (containerRef.current) {
       p.resizeCanvas(containerRef.current.clientWidth, containerRef.current.clientHeight);
-      cachedBarIndex = -2;
+      cachedPageIndex = -2;
     }
   };
 
@@ -58,56 +59,95 @@ export const createSketch = (containerRef) => (p) => {
     if (midiData !== lastMidiData) {
         measureMap = calculateMeasureMap(midiData);
         lastMidiData = midiData;
-        cachedBarIndex = -2;
-        lastBarIndex = -1;
+        cachedPageIndex = -2;
+        lastPageIndex = -1;
         cachedNotesPrev = [];
         cachedNotesCurrent = [];
         lastVisibleTracksRef = null;
         lastPercussionEnabledRef = null;
     }
 
-    // 3. Timing Calculation
+    // --- 3. Timing Calculation (Multi-Measure Page Logic) ---
     const audioTime = Tone.Transport.seconds;
-    const activeMeasure = getBarInfoAtTime(measureMap, audioTime) || (measureMap.length > 0 ? measureMap[0] : { index: 0, startTime: 0, duration: 2, endTime: 2 });
+    
+    // 获取当前处于哪一个具体的小节
+    const actualActiveMeasure = getBarInfoAtTime(measureMap, audioTime) || (measureMap.length > 0 ? measureMap[0] : { index: 0, startTime: 0, duration: 2, endTime: 2 });
+    
+    // 获取用户设置的每页小节数 (默认为1)
+    const measuresPerPage = Math.max(1, p5Settings.measuresPerPage || 1);
 
-    const currentBarIndex = activeMeasure.index;
-    const barProgress = (audioTime - activeMeasure.startTime) / activeMeasure.duration;
+    // 计算当前“页码”
+    const currentPageIndex = Math.floor(actualActiveMeasure.index / measuresPerPage);
+
+    // 计算该页面的起始小节和结束小节索引
+    const startMeasureIndex = currentPageIndex * measuresPerPage;
+    const endMeasureIndex = Math.min(startMeasureIndex + measuresPerPage, measureMap.length);
+
+    // 计算整个页面的时间窗口
+    // 页面的 startTime 是该页第一个小节的 startTime
+    const pageStartTime = measureMap[startMeasureIndex] ? measureMap[startMeasureIndex].startTime : 0;
+    
+    // 页面的 endTime 是该页最后一个小节的 endTime
+    // 注意：如果是最后一页，小节数可能少于 measuresPerPage，所以要用实际存在的最后一个小节
+    const lastMeasureOfPage = measureMap[endMeasureIndex - 1]; 
+    const pageEndTime = lastMeasureOfPage ? lastMeasureOfPage.endTime : pageStartTime + 2;
+    const pageDuration = pageEndTime - pageStartTime;
+
+    // 构造一个“虚拟”的 Measure 对象，欺骗渲染函数，让它们认为这是一个巨大的小节
+    const activePageWindow = {
+        index: currentPageIndex, // 逻辑索引改为页码
+        startTime: pageStartTime,
+        endTime: pageEndTime,
+        duration: pageDuration,
+        // 保留元数据
+        realStartBar: startMeasureIndex,
+        realEndBar: endMeasureIndex
+    };
+
+    // 计算页面内的进度 (0.0 - 1.0)
+    const barProgress = (audioTime - activePageWindow.startTime) / activePageWindow.duration;
+
 
     // 4. Background
     drawBackground(p, backgroundColor, p5Settings);
 
     // --- State Update Logic ---
 
-    // A. 翻页检测 (Page Turn Detection)
-    if (currentBarIndex !== lastBarIndex) {
-      if (lastBarIndex !== -1 && currentBarIndex === lastBarIndex + 1) {
+    // A. 翻页检测 (基于 Page Index 而非 Bar Index)
+    if (currentPageIndex !== lastPageIndex) {
+      if (lastPageIndex !== -1 && currentPageIndex === lastPageIndex + 1) {
         cachedNotesPrev = [...cachedNotesCurrent];
         cachedNotesPrev.forEach(n => n.shrinkScale = 1.0);
-        cachedNotesPrev.prevBarDuration = activeMeasure.duration;
+        // 重要：传递上一页的总时长，保证消失动画速率正确
+        cachedNotesPrev.prevBarDuration = activePageWindow.duration; 
         transitionStartTime = audioTime;
       } else {
         cachedNotesPrev = [];
       }
-      lastBarIndex = currentBarIndex;
+      lastPageIndex = currentPageIndex;
     }
 
     // B. 加载新数据 (Cache Update)
     const isVisibilityChanged = visibleTrackIndices !== lastVisibleTracksRef;
     const isPercussionToggled = percussionSettings?.enabled !== lastPercussionEnabledRef;
+    const isSettingsChanged = measuresPerPage !== lastMeasuresPerPage;
 
-    if (currentBarIndex !== cachedBarIndex || isVisibilityChanged || isPercussionToggled) {
+    if (currentPageIndex !== cachedPageIndex || isVisibilityChanged || isPercussionToggled || isSettingsChanged) {
+        // cacheNotesForBar 现在会获取整个时间窗口(activePageWindow)内的所有音符
         cachedNotesCurrent = cacheNotesForBar(
             p,
             midiData,
-            activeMeasure,
+            activePageWindow, 
             p5Settings,
             visibleTrackIndices,
             percussionSettings
         );
-        cachedDrumSteps = getDrumStepsForMeasure(midiData, activeMeasure, visibleTrackIndices);
-        cachedBarIndex = currentBarIndex;
+        cachedDrumSteps = getDrumStepsForMeasure(midiData, activePageWindow, visibleTrackIndices);
+        
+        cachedPageIndex = currentPageIndex;
         lastVisibleTracksRef = visibleTrackIndices;
         lastPercussionEnabledRef = percussionSettings?.enabled;
+        lastMeasuresPerPage = measuresPerPage;
     }
 
     // --- Render Layers ---
@@ -117,14 +157,11 @@ export const createSketch = (containerRef) => (p) => {
 
     // Layer B: Previous Melodic Notes
     const timeSinceTransition = audioTime - transitionStartTime;
-    // ================================================================
-    // 关键修改：为 drawPreviousNotes 传入 audioTime
-    // The key change is to pass audioTime into drawPreviousNotes
-    // ================================================================
+    
     const allGone = drawPreviousNotes(
         p,
         cachedNotesPrev,
-        audioTime,          // <-- 此处添加了 audioTime
+        audioTime,          
         p5Settings,
         timeSinceTransition,
         0.3,
