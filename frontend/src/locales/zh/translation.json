@@ -1,0 +1,197 @@
+{
+  "app": {
+    "title": "MIDI-Navigate",
+    "loading": "加载中...",
+    "error": "发生错误"
+  },
+  "controls": {
+    "play": "播放",
+    "pause": "暂停",
+    "stop": "停止",
+    "min": "MIN",
+    "sec": "SEC",
+    "ms": "MS",
+    "measure": "小节",
+    "volume": "音量",
+    "mute": "静音",
+    "upload": "上传 MIDI",
+    "upload_prompt": "拖拽 MIDI 文件到此处或点击上传"
+  },
+  "settings": {
+    "title": "控制面板",
+    "language": "语言 / Language",
+    "no_midi_mixer": "未加载 MIDI，音轨控制已禁用。",
+    "sections": {
+      "mixer": "音轨",
+      "interface": "界面",
+      "grid": "打击乐网格",
+      "debug": "调试",
+      "help": "帮助"
+    }
+  },
+  "mixer": {
+    "visibility": "显示",
+    "analysis_source": "分析源",
+    "mute": "静音",
+    "color": "颜色",
+    "track_name": "轨道名称",
+    "notes": "音符数",
+    "solo_preview": "独奏预览",
+    "processing": "处理中...",
+    "apply_analysis": "应用更改",
+    "use_custom_colors": "自定义颜色",
+    "enabled": "开启",
+    "disabled": "关闭",
+    "reset_all_colors": "重置所有颜色",
+    "pick_color": "选择颜色",
+    "enable_custom_colors_first": "请先启用自定义颜色"
+  },
+  "analysis": {
+    "global_analysis": "分析",
+    "active_notes": "当前音符",
+    "alternatives": "替代和弦",
+    "processing": "处理中...",
+    "reanalyzing": "重新分析中...",
+    "ready": "就绪",
+    "structure": "结构与转调",
+    "major": "Major",
+    "minor": "Minor"
+  },
+  "analysis_settings": {
+    "title": "分析引擎",
+    "deep_analysis_mode": "深度分析模式",
+    "mode_desc": {
+      "server": "后端 (Musicpy): 支持复杂和弦、转位、省略音。",
+      "local": "本地 (Tonal.js): 基础检测，零延迟。"
+    },
+    "sensitivity": {
+      "title": "灵敏度",
+      "high": "高",
+      "med": "中",
+      "low": "低",
+      "high_label": "高 (2s)",
+      "med_label": "中 (5s)",
+      "low_label": "低 (10s)"
+    },
+    "scale_library": "音阶",
+    "complexity": {
+      "basic": "基础",
+      "standard": "标准",
+      "all": "全部"
+    },
+    "tip": "提示：在音轨标签页点击“应用更改”以生效。"
+  },
+  "audio_io": {
+    "title": "音频与 MIDI 输入/输出",
+    "midi_output": "MIDI 输出设备",
+    "browser_only": "-- 仅使用浏览器音频 --",
+    "internal_synth": "浏览器内置合成器",
+    "status": {
+      "active": "活跃",
+      "no_devices": "无设备"
+    }
+  },
+  "canvas_appearance": {
+    "title": "画布外观",
+    "custom_color": "自定义颜色"
+  },
+  "debug": {
+    "analysis_dump": "分析数据",
+    "no_data": "无分析数据。请先上传 MIDI。",
+    "midi_header": "MIDI 头部信息"
+  },
+  "grid": {
+    "title": "打击乐网格",
+    "mode_three": "Three.js",
+    "mode_p5": "P5.js",
+    "enable": "启用打击乐网格",
+    "rows": "行数",
+    "cols": "列数",
+    "cell_size_world": "单元格大小 (世界单位)",
+    "cell_size_px": "单元格大小 (px)",
+    "position_y": "垂直 Y 轴",
+    "p5_settings_title": "P5 渲染器设置",
+    "visual_style": "视觉风格",
+    "spacing_px": "间距 (px)",
+    "styles": {
+      "geometric": "Geometric",
+      "energy": "Energy",
+      "blueprint": "Blueprint"
+    }
+  },
+  "help": {
+    "shortcuts_title": "快捷键",
+    "about_title": "关于",
+    "author": "作者",
+    "contact": "联系方式",
+    "shortcuts": {
+      "play_pause": "播放 / 暂停",
+      "open_file": "打开文件",
+      "mute": "静音开关",
+      "zen_mode": "专注模式",
+      "settings": "设置面板",
+      "export": "导出"
+    }
+  },
+  "p5_settings": {
+    "title": "可视化设置 (p5.js)",
+    "page_turn_mode": "翻页模式",
+    "modes": {
+      "wipe": "Wipe",
+      "fade": "Fade",
+      "meteor": "Meteor"
+    },
+    "measures_per_page": "每页小节数",
+    "note_growth_curve": "生长曲线",
+    "meteor_hold_time": "停留时间",
+    "meteor_fade_time": "消逝时间",
+    "shrink_start_point": "收缩起始点",
+    "meteor_fade_curve": "消逝曲线",
+    "shrink_curve": "收缩曲线",
+    "vertical_scale": "垂直缩放",
+    "vertical_offset": "垂直偏移",
+    "horizontal_scale": "水平缩放",
+    "note_thickness": "音符厚度",
+    "show_playhead": "显示播放线",
+    "show_background_grid": "显示背景网格"
+  },
+  "render_engine": {
+    "title": "渲染引擎"
+  },
+  "system_config": {
+    "title": "系统配置",
+    "export": "导出配置",
+    "import": "导入配置",
+    "import_success": "配置导入成功！",
+    "import_invalid": "无效的配置文件。",
+    "import_failed": "无法解析配置文件。"
+  },
+  "three_settings": {
+    "title": "可视化设置 (Three.js)",
+    "time_scale": "时间缩放",
+    "vertical_zoom": "垂直缩放",
+    "playhead_position": "播放线位置",
+    "toggles": {
+      "follow_playhead": "跟随播放线",
+      "show_playhead": "显示播放线",
+      "show_bar_lines": "显示小节线",
+      "click_to_seek": "点击定位"
+    }
+  },
+  "visuals": {
+    "title": "视觉效果",
+    "note_glow": "音符发光",
+    "ui_text_color": "UI 文本颜色",
+    "auto": "自动"
+  },
+  "widgets": {
+    "title": "小部件",
+    "timeline_controls": "时间轴与控制",
+    "analysis_hud": "分析面板"
+  },
+  "ws_visualizer": {
+    "title": "WebSocket",
+    "button": "打开 WebSocket 可视化窗口",
+    "description": "在新窗口中打开 WebSocket 页面，须在配套 VST 中设置地址为 127.0.0.1:8080/ws/midi"
+  }
+}

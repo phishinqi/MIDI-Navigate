@@ -1,0 +1,197 @@
+{
+  "app": {
+    "title": "MIDI-Navigate",
+    "loading": "Loading...",
+    "error": "An error occurred"
+  },
+  "controls": {
+    "play": "Play",
+    "pause": "Pause",
+    "stop": "Stop",
+    "min": "MIN",
+    "sec": "SEC",
+    "ms": "MS",
+    "measure": "MEASURE",
+    "volume": "Volume",
+    "mute": "Mute",
+    "upload": "Upload MIDI",
+    "upload_prompt": "Drag MIDI here or click to upload"
+  },
+  "settings": {
+    "title": "Control Panel",
+    "language": "Language",
+    "no_midi_mixer": "No MIDI loaded. Mixer controls are disabled.",
+    "sections": {
+      "mixer": "Mixer",
+      "interface": "Interface",
+      "grid": "Grid",
+      "debug": "Debug",
+      "help": "Help"
+    }
+  },
+  "mixer": {
+    "visibility": "Visibility",
+    "analysis_source": "Analysis Source",
+    "mute": "Mute",
+    "color": "Color",
+    "track_name": "Track Name",
+    "notes": "Notes",
+    "solo_preview": "Solo Preview",
+    "processing": "Processing...",
+    "apply_analysis": "Apply Analysis Changes",
+    "use_custom_colors": "Custom Colors",
+    "enabled": "ON",
+    "disabled": "OFF",
+    "reset_all_colors": "Reset All Colors",
+    "pick_color": "Pick Color",
+    "enable_custom_colors_first": "Enable custom colors first"
+  },
+  "analysis": {
+    "global_analysis": "Global Analysis",
+    "active_notes": "Active Notes",
+    "alternatives": "Alternatives",
+    "processing": "Processing...",
+    "reanalyzing": "Re-analyzing...",
+    "ready": "Ready",
+    "structure": "Structure & Modulation",
+    "major": "Major",
+    "minor": "Minor"
+  },
+  "analysis_settings": {
+    "title": "Analysis Engine",
+    "deep_analysis_mode": "Deep Analysis Mode",
+    "mode_desc": {
+      "server": "Server (Musicpy): Complex chords, inversions, omits.",
+      "local": "Local (Tonal.js): Fast basic detection, zero-latency."
+    },
+    "sensitivity": {
+      "title": "Sensitivity",
+      "high": "High",
+      "med": "Med",
+      "low": "Low",
+      "high_label": "High (2s)",
+      "med_label": "Med (5s)",
+      "low_label": "Low (10s)"
+    },
+    "scale_library": "Scale Library",
+    "complexity": {
+      "basic": "Basic",
+      "standard": "Standard",
+      "all": "All"
+    },
+    "tip": "Tip: Click 'Apply Analysis Changes' in Mixer tab to take effect."
+  },
+  "audio_io": {
+    "title": "Audio & MIDI I/O",
+    "midi_output": "MIDI Output",
+    "browser_only": "-- Use Browser Audio Only --",
+    "internal_synth": "Browser Internal Synth",
+    "status": {
+      "active": "Active",
+      "no_devices": "No Devices"
+    }
+  },
+  "canvas_appearance": {
+    "title": "Canvas Appearance",
+    "custom_color": "Custom Color"
+  },
+  "debug": {
+    "analysis_dump": "Analysis Data Dump",
+    "no_data": "No analysis data. Upload MIDI first.",
+    "midi_header": "MIDI Header"
+  },
+  "grid": {
+    "title": "Percussion Grid",
+    "mode_three": "Three.js Mode",
+    "mode_p5": "P5.js Mode",
+    "enable": "Enable Grid",
+    "rows": "Rows",
+    "cols": "Columns",
+    "cell_size_world": "Cell Size (World Units)",
+    "cell_size_px": "Cell Size (px)",
+    "position_y": "Vertical Y",
+    "p5_settings_title": "P5 Renderer Settings",
+    "visual_style": "Visual Style",
+    "spacing_px": "Spacing (px)",
+    "styles": {
+      "geometric": "Geometric",
+      "energy": "Energy",
+      "blueprint": "Blueprint"
+    }
+  },
+  "help": {
+    "shortcuts_title": "Keyboard Shortcuts",
+    "about_title": "About",
+    "author": "Author",
+    "contact": "Contact",
+    "shortcuts": {
+      "play_pause": "Play / Pause",
+      "open_file": "Open File",
+      "mute": "Mute Audio",
+      "zen_mode": "Zen Mode",
+      "settings": "Settings",
+      "export": "Export"
+    }
+  },
+  "p5_settings": {
+    "title": "Visualization (p5.js)",
+    "page_turn_mode": "Page Turn Mode",
+    "modes": {
+      "wipe": "Wipe",
+      "fade": "Fade",
+      "meteor": "Meteor"
+    },
+    "measures_per_page": "Measures/Page",
+    "note_growth_curve": "Note Growth Curve",
+    "meteor_hold_time": "Meteor Hold Time",
+    "meteor_fade_time": "Meteor Fade Time",
+    "shrink_start_point": "Shrink Start Point",
+    "meteor_fade_curve": "Meteor Fade Curve",
+    "shrink_curve": "Shrink Curve",
+    "vertical_scale": "Vertical Scale",
+    "vertical_offset": "Vertical Offset",
+    "horizontal_scale": "Horizontal Scale",
+    "note_thickness": "Note Thickness",
+    "show_playhead": "Show Playhead",
+    "show_background_grid": "Show Background Grid"
+  },
+  "render_engine": {
+    "title": "Render Engine"
+  },
+  "system_config": {
+    "title": "System",
+    "export": "Export Config",
+    "import": "Import Config",
+    "import_success": "Configuration imported successfully!",
+    "import_invalid": "Invalid configuration file.",
+    "import_failed": "Failed to parse configuration file."
+  },
+  "three_settings": {
+    "title": "Viewport (Three.js)",
+    "time_scale": "Time Scale",
+    "vertical_zoom": "Vertical Zoom",
+    "playhead_position": "Playhead Position",
+    "toggles": {
+      "follow_playhead": "Follow Playhead",
+      "show_playhead": "Show Playhead",
+      "show_bar_lines": "Show Bar Lines",
+      "click_to_seek": "Click to Seek"
+    }
+  },
+  "visuals": {
+    "title": "Visuals",
+    "note_glow": "Note Glow",
+    "ui_text_color": "UI Text Color",
+    "auto": "Auto"
+  },
+  "widgets": {
+    "title": "Widgets",
+    "timeline_controls": "Timeline & Controls",
+    "analysis_hud": "Analysis HUD"
+  },
+  "ws_visualizer": {
+    "title": "Standalone Visualizer",
+    "button": "Open WebSocket Visualizer",
+    "description": "Opens a high-performance visualizer in a new window, ideal for direct VST/DAW connection."
+  }
+}
