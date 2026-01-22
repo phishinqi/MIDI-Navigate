@@ -3,13 +3,15 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Noto Sans", Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: dark; /* 强制深色模式，符合艺术平台定位 */
+  color-scheme: dark;
+  /* 强制深色模式，符合艺术平台定位 */
   color: rgba(255, 255, 255, 0.87);
-  background-color: #0a0a0a; /* midi-black */
+  background-color: #0a0a0a;
+  /* midi-black */
 }
 
 body {
@@ -18,7 +20,8 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  overflow: hidden; /* 防止滚动，这是全屏应用 */
+  overflow: hidden;
+  /* 防止滚动，这是全屏应用 */
 }
 
 #root {

@@ -11,7 +11,7 @@
     "min": "MIN",
     "sec": "SEC",
     "ms": "MS",
-    "measure": "小节",
+    "measure": "Bar",
     "volume": "音量",
     "mute": "静音",
     "upload": "上传 MIDI",
@@ -59,25 +59,10 @@
   },
   "analysis_settings": {
     "title": "分析引擎",
-    "deep_analysis_mode": "深度分析模式",
+    "deep_analysis_mode": "和弦计算源",
     "mode_desc": {
-      "server": "后端 (Musicpy): 支持复杂和弦、转位、省略音。",
-      "local": "本地 (Tonal.js): 基础检测，零延迟。"
-    },
-    "sensitivity": {
-      "title": "灵敏度",
-      "high": "高",
-      "med": "中",
-      "low": "低",
-      "high_label": "高 (2s)",
-      "med_label": "中 (5s)",
-      "low_label": "低 (10s)"
-    },
-    "scale_library": "音阶",
-    "complexity": {
-      "basic": "基础",
-      "standard": "标准",
-      "all": "全部"
+      "server": "后端 (Musicpy): 复杂和弦，包含转位与省略音",
+      "local": "前端 (ChordNameFinder): 快速检测，支持高级和弦命名"
     },
     "tip": "提示：在音轨标签页点击“应用更改”以生效。"
   },

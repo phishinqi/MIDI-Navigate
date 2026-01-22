@@ -54,6 +54,16 @@ const ENHARMONIC_MAP: { [key: string]: string } = {
 
 // Chord patterns: intervals from root
 const CHORD_PATTERNS: { [key: string]: number[] } = {
+    // Two-note voicings (incomplete chords) - MUST come before triads for priority
+    '5': [0, 7],                        // Power Chord (perfect 5th)
+    '(no5)': [0, 4],                    // Major no5 (root + major 3rd)
+    'm(no5)': [0, 3],                   // Minor no5 (root + minor 3rd)
+    'sus2(no5)': [0, 2],                // Sus2 no5 (root + major 2nd)
+    'sus4(no5)': [0, 5],                // Sus4 no5 (root + perfect 4th)
+
+    // Three-note incomplete voicings
+    'sus2add3': [0, 2, 4],              // Sus2 with added major 3rd (cluster)
+
     // Triads
     '': [0, 4, 7],                      // Major
     'm': [0, 3, 7],                     // Minor
@@ -61,8 +71,12 @@ const CHORD_PATTERNS: { [key: string]: number[] } = {
     'aug': [0, 4, 8],                   // Augmented
     'sus2': [0, 2, 7],                  // Suspended 2
     'sus4': [0, 5, 7],                  // Suspended 4
+
+    // Add chords (4-note)
     'add9': [0, 2, 4, 7],               // Major add 9
-    '5': [0, 7],                        // Power Chord
+    'add6': [0, 4, 7, 9],               // Major add 6
+    'm add6': [0, 3, 7, 9],             // Minor add 6
+    'add#9': [0, 4, 7, 15],             // Major add #9 (spanning octave)
     'add11': [0, 4, 5, 7],              // Major add 11 (Cluster)
     'm add11': [0, 3, 5, 7],            // Minor add 11 (Cluster)
 
@@ -73,6 +87,8 @@ const CHORD_PATTERNS: { [key: string]: number[] } = {
     'dim7': [0, 3, 6, 9],               // Diminished 7
     'm7b5': [0, 3, 6, 10],              // Half-diminished
     'mMaj7': [0, 3, 7, 11],             // Minor-Major 7
+    'mMaj7#5': [0, 3, 8, 11],           // Minor-Major 7 augmented 5th
+    'maj7#5': [0, 4, 8, 11],            // Major 7 augmented 5th
     'mMaj9': [0, 3, 7, 11, 14],         // Minor-Major 9
     'aug7': [0, 4, 8, 10],              // Augmented 7
 
@@ -146,36 +162,20 @@ function getIntervals(notes: NormalizedNote[], explicitRoot?: NormalizedNote): n
 
     // If explicitRoot is provided, use it. Otherwise use the first note (lowest).
     const rootNote = explicitRoot || notes[0];
-    const rootPitch = rootNote.pitchClass;
 
-    // We need to calculate intervals relative to the specific root.
-    // However, the original logic handled octave spacing based on the *lowest* note (notes[0]).
-    // Code expects intervals to be roughly sorted or at least capture the spread.
-    // If we rotate roots, the "lowest note" physically remains notes[0].
-    // But the "musical root" changes.
-
-    // When detecting inversions (e.g. C/E), we want to see if the notes form "C Major".
-    // So we calculate intervals relative to C.
-    // E (4), G (7), C (0).  Sorted: 0, 4, 7. -> C Major.
-
-    // So:
+    // Calculate intervals based on actual MIDI pitch difference
+    // This preserves octave information which is critical for extended chords
     return notes.map(n => {
-        let interval = (n.pitchClass - rootPitch + 12) % 12;
-        // Optimization: For detection, we often just need pitch class intervals (mod 12).
-        // Extended chords need specific octaves (e.g. b9 vs b2).
-        // If we change the root, the relative octaves change complexity.
-        // For basic detection like "C Major", PC intervals are enough.
-        // For "C13", we need to know if D is 2 or 9.
+        // Calculate the semitone distance from root
+        let interval = n.midi - rootNote.midi;
 
-        // Let's preserve the existing logic of adding 12 for wide chords, 
-        // BUT relative to the physical bass (notes[0]) to keep voicing structure?
-        // Actually, for identification, normalized PC sorting is often used in basic matching.
-        // The `intervalsMatch` function sorts intervals.
+        // Normalize to positive intervals
+        while (interval < 0) {
+            interval += 12;
+        }
 
-        let val = (n.pitchClass - rootPitch + 12) % 12;
-
-        return val;
-    }).sort((a, b) => a - b); // Sorted PC intervals are easier for `matchPattern`
+        return interval;
+    }).sort((a, b) => a - b);
 }
 
 function calculateComplexity(noteName: string): number {
@@ -198,14 +198,73 @@ function getEnharmonicEquivalent(note: string): string {
     return enharmonic ? enharmonic + octave : note;
 }
 
+/**
+ * Generate all reasonable enharmonic spellings for a MIDI note number
+ * Returns both sharp and flat versions where applicable
+ */
+function getEnharmonicSpellings(midi: number): string[] {
+    const octave = Math.floor(midi / 12) - 1;
+    const pitchClass = midi % 12;
+
+    const spellings: string[] = [];
+
+    // Add sharp spelling
+    const sharpName = NOTE_NAMES[pitchClass];
+    spellings.push(sharpName);
+
+    // Add flat spelling if it exists and is different
+    const flatName = FLAT_NOTE_NAMES[pitchClass];
+    if (flatName !== sharpName) {
+        spellings.push(flatName);
+    }
+
+    return spellings;
+}
+
+/**
+ * Score a set of note names based on enharmonic simplicity
+ * Lower score = better (simpler spelling)
+ */
+function scoreEnharmonicSpelling(noteNames: string[]): number {
+    let score = 0;
+    let sharpCount = 0;
+    let flatCount = 0;
+
+    for (const name of noteNames) {
+        const baseName = name.replace(/\d+$/, ''); // Remove octave
+
+        // Count accidentals
+        const sharps = (baseName.match(/#/g) || []).length;
+        const flats = (baseName.match(/b/g) || []).length;
+
+        sharpCount += sharps;
+        flatCount += flats;
+
+        // Penalize accidentals (flats slightly preferred over sharps in classical theory)
+        score += sharps * 1.5;
+        score += flats * 1.0;
+
+        // Penalize double accidentals heavily
+        if (baseName.includes('##') || baseName.includes('bb')) {
+            score += 10;
+        }
+    }
+
+    // Penalize mixed accidentals (inconsistent spelling)
+    if (sharpCount > 0 && flatCount > 0) {
+        score += 2;
+    }
+
+    return score;
+}
+
 // ============================================================================
 // Pattern Matching
 // ============================================================================
 
-function intervalsMatch(intervals: number[], pattern: number[], allowSubset = false): boolean {
-    if (allowSubset) {
-        return pattern.every(p => intervals.includes(p));
-    }
+function intervalsMatch(intervals: number[], pattern: number[]): boolean {
+    // STRICT MATCHING: Only allow exact matches (same length, same intervals)
+    // This prevents [0, 2, 4] from matching add9 [0, 2, 4, 7]
 
     if (intervals.length !== pattern.length) return false;
 
@@ -235,23 +294,11 @@ function matchAugmented(intervals: number[]): boolean {
     return intervalsMatch(intervals, [0, 4, 8]);
 }
 
-function matchPattern(intervals: number[], allowExtensions = false): string | null {
-    // Try exact matches first
+function matchPattern(intervals: number[]): string | null {
+    // Try exact matches only - patterns are ordered, so earlier patterns have priority
     for (const [chordType, pattern] of Object.entries(CHORD_PATTERNS)) {
         if (intervalsMatch(intervals, pattern)) {
             return chordType;
-        }
-    }
-
-    // If allowing extensions, try subset matches
-    if (allowExtensions) {
-        const sortedByLength = Object.entries(CHORD_PATTERNS)
-            .sort((a, b) => b[1].length - a[1].length);
-
-        for (const [chordType, pattern] of sortedByLength) {
-            if (intervalsMatch(intervals, pattern, true)) {
-                return chordType;
-            }
         }
     }
 
@@ -684,233 +731,279 @@ export function detect(
 
     if (inputNotes.length === 0) return [];
 
-    // Parse and normalize notes
-    const notes = inputNotes.map(parseNote);
+    // Parse and normalize notes - try both sharp and flat spellings
+    const allNoteVariants: NormalizedNote[][] = [];
 
-    // Remove duplicates by pitch class, keeping lowest octave
-    const uniqueNotes = Array.from(
-        notes.reduce((map, note) => {
-            const existing = map.get(note.pitchClass);
-            if (!existing || note.midi < existing.midi) {
-                map.set(note.pitchClass, note);
-            }
-            return map;
-        }, new Map<number, NormalizedNote>()).values()
-    );
-
-    // Sort by MIDI pitch (NOT pitch class) to preserve voicing
-    const sortedNotes = [...uniqueNotes].sort((a, b) => a.midi - b.midi);
-
-
-    const intervals = getIntervals(sortedNotes);
-    const results: ChordDetectionResult[] = [];
-
-    // ============================================================================
-    // Minor / Quartal Detection
-    // ============================================================================
-
-    function detectMinorQuartalFeatures(intervals: number[], notes: NormalizedNote[]): ChordDetectionResult | null {
-        // 1. Check for Minor Context (Root + m3 + b7 + 11 usually, or just m7)
-        // "So What" chord: Root, 11, b7, m3, b13 (stacked 4ths approximately)
-        // Intervals: 0, 5, 10, 3, 8 (normalized) or similar permutations
-
-        // Key Intervals
-        const hasMinor3 = intervals.includes(3) || intervals.includes(15) || intervals.includes(27);
-        const has7 = intervals.includes(10) || intervals.includes(22); // b7
-        const has11 = intervals.includes(5) || intervals.includes(17) || intervals.includes(29);
-
-        // Check for "So What" specific features: 11 is prominent, m3 might be high
-        if (has7 && has11) {
-            // Can be m11 or Sus4
-            // If has m3, it's m11
-            if (hasMinor3) {
-                const extensions: number[] = [11];
-                const alterations: string[] = [];
-                const omissions: string[] = [];
-
-                // Check 5th
-                const has5 = intervals.includes(7) || intervals.includes(19) || intervals.includes(31);
-                if (!has5) omissions.push('omit5');
-
-                // Check 9th
-                const has9 = intervals.includes(2) || intervals.includes(14) || intervals.includes(26);
-                if (has9) extensions.push(9);
-
-                // Check 13th/b13
-                const has13 = intervals.includes(9) || intervals.includes(21) || intervals.includes(33);
-                const hasb13 = intervals.includes(8) || intervals.includes(20) || intervals.includes(32);
-
-                if (has13) extensions.push(13);
-                // In minor, b6/b13 is diatonic (Aeolian). 
-                // Dm11(b13) is unusual but So What chord often analyzed as such or just m11 with b13 color.
-                if (hasb13) alterations.push('b13');
-
-                // Base chord
-                let chordType = 'm11';
-                if (hasb13 && !has13) {
-                    // Format: m11(b13)
-                }
-
-                let formatted = `${notes[0].name}${chordType}`;
-                if (alterations.length > 0) formatted += `(${alterations.join(',')})`;
-
-                return {
-                    root: notes[0].name,
-                    chordType,
-                    bass: null,
-                    extensions,
-                    alterations,
-                    omissions,
-                    confidence: 0.9,
-                    reasoning: 'Detected minor 11th / quartal structure',
-                    formatted,
-                    complexity: calculateComplexity(notes[0].name)
-                };
+    // For each MIDI number, generate possible enharmonic spellings
+    for (const note of inputNotes) {
+        if (typeof note === 'number') {
+            const spellings = getEnharmonicSpellings(note);
+            const variants: NormalizedNote[] = spellings.map(spelling => parseNote(spelling + Math.floor(note / 12 - 1)));
+            allNoteVariants.push(variants);
+        } else {
+            // String note - still parse it but also try enharmonic
+            const parsed = parseNote(note);
+            const enharmonic = getEnharmonicEquivalent(note);
+            if (enharmonic !== note) {
+                allNoteVariants.push([parsed, parseNote(enharmonic)]);
+            } else {
+                allNoteVariants.push([parsed]);
             }
         }
-
-        return null;
     }
 
-    // 1. Try merge rules first (highest priority)
-    const dominantFeatures = detectDominantFeatures(intervals, sortedNotes);
-    if (dominantFeatures) results.push(dominantFeatures);
+    // Generate all reasonable combinations (limit to avoid explosion)
+    // Strategy: Try all-sharp, all-flat, and original combinations
+    const noteCombinations: NormalizedNote[][] = [];
 
-    const minorQuartal = detectMinorQuartalFeatures(intervals, sortedNotes);
-    if (minorQuartal) results.push(minorQuartal);
+    // Combination 1: All sharp spellings (first variant)
+    noteCombinations.push(allNoteVariants.map(variants => variants[0]));
 
-    // 2. Check symmetrical chords
-    if (matchDiminished7(intervals)) {
-        results.push(...generateDim7Alternatives(sortedNotes));
-    } else if (matchAugmented(intervals)) {
-        results.push(...generateAugAlternatives(sortedNotes));
-    } else {
-        // 3. Try standard pattern matching
-        let chordType = matchPattern(intervals);
-        let omissions: string[] = [];
-        let confidence = 0.95;
-        let reasoning = 'Exact pattern match';
+    // Combination 2: All flat spellings (second variant if exists)
+    if (allNoteVariants.every(v => v.length > 1)) {
+        noteCombinations.push(allNoteVariants.map(variants => variants[1] || variants[0]));
+    }
 
-        // If no exact match, try detection with omitted 5th
-        if (!chordType) {
-            const matchOmit = matchPatternWithOmissions(intervals);
-            if (matchOmit) {
-                chordType = matchOmit.type;
-                omissions = matchOmit.omissions;
-                confidence = 0.85;
-                reasoning = 'Pattern match with omitted 5th';
+    // Process each combination and collect results
+    const allResults: ChordDetectionResult[] = [];
+
+    for (const noteCombo of noteCombinations) {
+        // Remove duplicates by pitch class, keeping lowest octave
+        const uniqueNotes = Array.from(
+            noteCombo.reduce((map, note) => {
+                const existing = map.get(note.pitchClass);
+                if (!existing || note.midi < existing.midi) {
+                    map.set(note.pitchClass, note);
+                }
+                return map;
+            }, new Map<number, NormalizedNote>()).values()
+        );
+
+        // Sort by MIDI pitch (NOT pitch class) to preserve voicing
+        const sortedNotes = [...uniqueNotes].sort((a, b) => a.midi - b.midi);
+
+        const intervals = getIntervals(sortedNotes);
+        const results: ChordDetectionResult[] = [];
+
+        // ============================================================================
+        // Minor / Quartal Detection
+        // ============================================================================
+
+        function detectMinorQuartalFeatures(intervals: number[], notes: NormalizedNote[]): ChordDetectionResult | null {
+            // 1. Check for Minor Context (Root + m3 + b7 + 11 usually, or just m7)
+            // "So What" chord: Root, 11, b7, m3, b13 (stacked 4ths approximately)
+            // Intervals: 0, 5, 10, 3, 8 (normalized) or similar permutations
+
+            // Key Intervals
+            const hasMinor3 = intervals.includes(3) || intervals.includes(15) || intervals.includes(27);
+            const has7 = intervals.includes(10) || intervals.includes(22); // b7
+            const has11 = intervals.includes(5) || intervals.includes(17) || intervals.includes(29);
+
+            // Check for "So What" specific features: 11 is prominent, m3 might be high
+            if (has7 && has11) {
+                // Can be m11 or Sus4
+                // If has m3, it's m11
+                if (hasMinor3) {
+                    const extensions: number[] = [11];
+                    const alterations: string[] = [];
+                    const omissions: string[] = [];
+
+                    // Check 5th
+                    const has5 = intervals.includes(7) || intervals.includes(19) || intervals.includes(31);
+                    if (!has5) omissions.push('omit5');
+
+                    // Check 9th
+                    const has9 = intervals.includes(2) || intervals.includes(14) || intervals.includes(26);
+                    if (has9) extensions.push(9);
+
+                    // Check 13th/b13
+                    const has13 = intervals.includes(9) || intervals.includes(21) || intervals.includes(33);
+                    const hasb13 = intervals.includes(8) || intervals.includes(20) || intervals.includes(32);
+
+                    if (has13) extensions.push(13);
+                    // In minor, b6/b13 is diatonic (Aeolian). 
+                    // Dm11(b13) is unusual but So What chord often analyzed as such or just m11 with b13 color.
+                    if (hasb13) alterations.push('b13');
+
+                    // Base chord
+                    let chordType = 'm11';
+                    if (hasb13 && !has13) {
+                        // Format: m11(b13)
+                    }
+
+                    let formatted = `${notes[0].name}${chordType}`;
+                    if (alterations.length > 0) formatted += `(${alterations.join(',')})`;
+
+                    return {
+                        root: notes[0].name,
+                        chordType,
+                        bass: null,
+                        extensions,
+                        alterations,
+                        omissions,
+                        confidence: 0.9,
+                        reasoning: 'Detected minor 11th / quartal structure',
+                        formatted,
+                        complexity: calculateComplexity(notes[0].name)
+                    };
+                }
             }
+
+            return null;
         }
 
-        if (chordType !== null) {
-            results.push({
-                root: sortedNotes[0].name,
-                chordType,
-                bass: null,
-                extensions: [],
-                alterations: [],
-                omissions: omissions,
-                confidence: confidence,
-                reasoning: reasoning,
-                formatted: `${sortedNotes[0].name}${chordType}`,
-                complexity: calculateComplexity(sortedNotes[0].name)
-            });
-        }
+        // 1. Try merge rules first (highest priority)
+        const dominantFeatures = detectDominantFeatures(intervals, sortedNotes);
+        if (dominantFeatures) results.push(dominantFeatures);
 
-        // 4. Try functional enharmonics
-        if (mode === 'loose') {
-            results.push(...detectFunctionalEnharmonics(intervals, sortedNotes));
-        }
+        const minorQuartal = detectMinorQuartalFeatures(intervals, sortedNotes);
+        if (minorQuartal) results.push(minorQuartal);
 
-        // 5. Try slash chords for discrete voicings
-        const slashChord = trySlashChord(sortedNotes);
-        if (slashChord) results.push(slashChord);
-
-        // 6. Rotating Root Scan (Inversions & Slash Chords)
-        // Iterate through unique pitch classes as candidate roots
-        for (const candidateRoot of sortedNotes) {
-            if (candidateRoot.pitchClass === sortedNotes[0].pitchClass) continue; // Already checked as Primary Root
-
-            const rotatingIntervals = getIntervals(sortedNotes, candidateRoot);
-
-            // Check for standard patterns
-            let matchType = matchPattern(rotatingIntervals);
+        // 2. Check symmetrical chords
+        if (matchDiminished7(intervals)) {
+            results.push(...generateDim7Alternatives(sortedNotes));
+        } else if (matchAugmented(intervals)) {
+            results.push(...generateAugAlternatives(sortedNotes));
+        } else {
+            // 3. Try standard pattern matching
+            let chordType = matchPattern(intervals);
             let omissions: string[] = [];
+            let confidence = 0.95;
+            let reasoning = 'Exact pattern match';
 
-            if (matchType === null) {
-                const matchOmit = matchPatternWithOmissions(rotatingIntervals);
+            // If no exact match, try detection with omitted 5th
+            if (!chordType) {
+                const matchOmit = matchPatternWithOmissions(intervals);
                 if (matchOmit) {
-                    matchType = matchOmit.type;
+                    chordType = matchOmit.type;
                     omissions = matchOmit.omissions;
-                } else {
-                    // Fallback check for exact triad intervals if `matchPattern` failed due to strictness
-                    // (e.g. if getIntervals returned something slightly unexpected)
-                    // But let's assume getIntervals is correct: [0, 4, 7] etc.
-                    // C/E (E, G, C) -> relative to C: E(4), G(7), C(0) -> [0, 4, 7] -> Major
-
-                    // If still null, maybe it's Sus?
+                    confidence = 0.85;
+                    reasoning = 'Pattern match with omitted 5th';
                 }
             }
 
-            // Check for dominant/minor features on rotated intervals
-            // const dom = detectDominantFeatures(rotatingIntervals, sortedNotes); 
-            // NOTE: detectDominantFeatures logic is tied to "Bass = Root" assumption for some checks.
-            // Be careful reusing it here.
-            // For now, Slash chords logic mainly covers Triads/7ths.
-
-            if (matchType !== null) {
-                const isBassInChord = rotatingIntervals.includes((sortedNotes[0].pitchClass - candidateRoot.pitchClass + 12) % 12);
-                // In slash chord, bass might not be in the chord (e.g. F/G).
-                // In inversion, bass IS in the chord.
-
-                // Complexity penalty: Slash chords are complex.
-                // Inversion penalty: mild.
-                let penalty = 0;
-                let bassName = sortedNotes[0].name;
-
-                // Check if it's a standard inversion
-                // 1st inversion (3rd in bass), 2nd inversion (5th in bass), 3rd inversion (7th in bass)
-                // We can know this by checking the interval of the Bass Note relative to Candidate Root.
-                // Bass is sortedNotes[0].
-                const bassInterval = (sortedNotes[0].pitchClass - candidateRoot.pitchClass + 12) % 12;
-
-                if (matchType === '' || matchType === 'm') {
-                    // Triad Inversions
-                    if (bassInterval === 4 || bassInterval === 3) penalty = 0.5; // 1st inv
-                    else if (bassInterval === 7) penalty = 0.5; // 2nd inv
-                    else penalty = 1.0; // Slash chord
-                } else {
-                    penalty = 1.0; // 7th chord inversion or slash
-                }
-
+            if (chordType !== null) {
                 results.push({
-                    root: candidateRoot.name,
-                    chordType: matchType,
-                    bass: bassName,
+                    root: sortedNotes[0].name,
+                    chordType,
+                    bass: null,
                     extensions: [],
                     alterations: [],
                     omissions: omissions,
-                    confidence: 0.85 - (penalty * 0.1),
-                    reasoning: `Inversion/Slash: ${candidateRoot.name}${matchType} over ${bassName}`,
-                    formatted: `${candidateRoot.name}${matchType}/${bassName}`,
-                    complexity: calculateComplexity(candidateRoot.name) + penalty
+                    confidence: confidence,
+                    reasoning: reasoning,
+                    formatted: `${sortedNotes[0].name}${chordType}`,
+                    complexity: calculateComplexity(sortedNotes[0].name)
                 });
             }
-        }
-    } // Closing Rotating Root Loop
 
-    // 6. Generate enharmonic alternatives (in loose mode)
-    if (mode === 'loose') {
-        const enharmonicResults: ChordDetectionResult[] = [];
-        for (const result of results) {
-            const enharmonic = generateEnharmonicAlternative(result);
-            if (enharmonic) enharmonicResults.push(enharmonic);
-        }
-        results.push(...enharmonicResults);
-    }
+            // 4. Try functional enharmonics
+            if (mode === 'loose') {
+                results.push(...detectFunctionalEnharmonics(intervals, sortedNotes));
+            }
 
-    // 7. Filter and sort results
-    const filteredResults = results
+            // 5. Try slash chords for discrete voicings
+            const slashChord = trySlashChord(sortedNotes);
+            if (slashChord) results.push(slashChord);
+
+            // 6. Rotating Root Scan (Inversions & Slash Chords)
+            // Iterate through unique pitch classes as candidate roots
+            for (const candidateRoot of sortedNotes) {
+                if (candidateRoot.pitchClass === sortedNotes[0].pitchClass) continue; // Already checked as Primary Root
+
+                const rotatingIntervals = getIntervals(sortedNotes, candidateRoot);
+
+                // Check for standard patterns
+                let matchType = matchPattern(rotatingIntervals);
+                let omissions: string[] = [];
+
+                if (matchType === null) {
+                    const matchOmit = matchPatternWithOmissions(rotatingIntervals);
+                    if (matchOmit) {
+                        matchType = matchOmit.type;
+                        omissions = matchOmit.omissions;
+                    } else {
+                        // Fallback check for exact triad intervals if `matchPattern` failed due to strictness
+                        // (e.g. if getIntervals returned something slightly unexpected)
+                        // But let's assume getIntervals is correct: [0, 4, 7] etc.
+                        // C/E (E, G, C) -> relative to C: E(4), G(7), C(0) -> [0, 4, 7] -> Major
+
+                        // If still null, maybe it's Sus?
+                    }
+                }
+
+                // Check for dominant/minor features on rotated intervals
+                // const dom = detectDominantFeatures(rotatingIntervals, sortedNotes); 
+                // NOTE: detectDominantFeatures logic is tied to "Bass = Root" assumption for some checks.
+                // Be careful reusing it here.
+                // For now, Slash chords logic mainly covers Triads/7ths.
+
+                if (matchType !== null) {
+                    const isBassInChord = rotatingIntervals.includes((sortedNotes[0].pitchClass - candidateRoot.pitchClass + 12) % 12);
+                    // In slash chord, bass might not be in the chord (e.g. F/G).
+                    // In inversion, bass IS in the chord.
+
+                    // Complexity penalty: Slash chords are complex.
+                    // Inversion penalty: mild.
+                    let penalty = 0;
+                    let bassName = sortedNotes[0].name;
+
+                    // Check if it's a standard inversion
+                    // 1st inversion (3rd in bass), 2nd inversion (5th in bass), 3rd inversion (7th in bass)
+                    // We can know this by checking the interval of the Bass Note relative to Candidate Root.
+                    // Bass is sortedNotes[0].
+                    const bassInterval = (sortedNotes[0].pitchClass - candidateRoot.pitchClass + 12) % 12;
+
+                    if (matchType === '' || matchType === 'm') {
+                        // Triad Inversions
+                        if (bassInterval === 4 || bassInterval === 3) penalty = 0.5; // 1st inv
+                        else if (bassInterval === 7) penalty = 0.5; // 2nd inv
+                        else penalty = 1.0; // Slash chord
+                    } else {
+                        penalty = 1.0; // 7th chord inversion or slash
+                    }
+
+                    results.push({
+                        root: candidateRoot.name,
+                        chordType: matchType,
+                        bass: bassName,
+                        extensions: [],
+                        alterations: [],
+                        omissions: omissions,
+                        confidence: 0.85 - (penalty * 0.1),
+                        reasoning: `Inversion/Slash: ${candidateRoot.name}${matchType} over ${bassName}`,
+                        formatted: `${candidateRoot.name}${matchType}/${bassName}`,
+                        complexity: calculateComplexity(candidateRoot.name) + penalty
+                    });
+                }
+            }
+        } // Closing Rotating Root Loop
+
+        // 6. Generate enharmonic alternatives (in loose mode)
+        if (mode === 'loose') {
+            const enharmonicResults: ChordDetectionResult[] = [];
+            for (const result of results) {
+                const enharmonic = generateEnharmonicAlternative(result);
+                if (enharmonic) enharmonicResults.push(enharmonic);
+            }
+            results.push(...enharmonicResults);
+        }
+
+        // Score results based on enharmonic spelling
+        const scoredResults = results.map(r => ({
+            ...r,
+            enharmonicScore: scoreEnharmonicSpelling([r.root, r.bass || ''].filter(Boolean))
+        }));
+
+        // Add to global results with combined complexity score
+        allResults.push(...scoredResults.map(r => ({
+            ...r,
+            complexity: r.complexity + r.enharmonicScore * 0.1
+        })));
+    } // Close noteCombo loop
+
+    // 7. Filter and sort all results from all enharmonic combinations
+    const filteredResults = allResults
         .filter(r => r.confidence >= minConfidence)
         .sort((a, b) => {
             // Sort by confidence (desc), then complexity (asc)

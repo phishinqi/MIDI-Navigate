@@ -59,25 +59,10 @@
   },
   "analysis_settings": {
     "title": "Analysis Engine",
-    "deep_analysis_mode": "Deep Analysis Mode",
+    "deep_analysis_mode": "Chord Calculation Source",
     "mode_desc": {
-      "server": "Server (Musicpy): Complex chords, inversions, omits.",
-      "local": "Local (Tonal.js): Fast basic detection, zero-latency."
-    },
-    "sensitivity": {
-      "title": "Sensitivity",
-      "high": "High",
-      "med": "Med",
-      "low": "Low",
-      "high_label": "High (2s)",
-      "med_label": "Med (5s)",
-      "low_label": "Low (10s)"
-    },
-    "scale_library": "Scale Library",
-    "complexity": {
-      "basic": "Basic",
-      "standard": "Standard",
-      "all": "All"
+      "server": "Backend (Musicpy): Complex chords, inversions, omits.",
+      "local": "Frontend (ChordNameFinder): Fast detection, advanced naming."
     },
     "tip": "Tip: Click 'Apply Analysis Changes' in Mixer tab to take effect."
   },
