@@ -2,17 +2,17 @@
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Palette } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const CanvasAppearance = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const backgroundColor = useStore(state => state.backgroundColor);
     const setBackgroundColor = useStore(state => state.setBackgroundColor);
     const colors = ['#040405', '#1a1a1a', '#2d1b2e', '#0f172a', '#f5f5f4', '#e2e8f0', '#E0F2FE', '#FAE8FF', '#FEF9C3', '#DCFCE7'];
 
     return (
         <div className="space-y-4">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('canvas_appearance.title', { defaultValue: 'Canvas Appearance' })}
             </h3>
 

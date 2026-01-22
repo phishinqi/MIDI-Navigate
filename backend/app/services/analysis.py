@@ -17,7 +17,9 @@ logger = logging.getLogger("midi_analyzer")
 warnings.filterwarnings("ignore")
 
 
+# ==========================================
 # PART 1: Real-time Chord Analyzer (Musicpy)
+# ==========================================
 
 class ChordAnalyzer:
     def __init__(self):
@@ -35,7 +37,7 @@ class ChordAnalyzer:
             name = self.NOTE_NAMES[note_idx]
             return f"{name}{octave}"
         except Exception:
-            return "C4"
+            return "C4"  # Fallback
 
     def analyze_realtime(self, notes: List[NoteInput]) -> ChordResponse:
         """
@@ -52,6 +54,7 @@ class ChordAnalyzer:
             sorted_notes = sorted(notes, key=lambda n: n.pitch)
             note_names_all = [self._midi_to_note_name(n.pitch) for n in sorted_notes]
 
+            # 内部检测辅助函数
             def run_detect(n_names):
                 if not n_names: return None
                 # 使用 musicpy 的核心 detect 算法
@@ -67,10 +70,10 @@ class ChordAnalyzer:
                     logger.warning(f"Musicpy detect failed for {n_names}: {e}")
                     return None
 
-            # 2. 策略 A: 完整检测
+            # 2. 策略 A: 完整检测 (Full Detection)
             res_full = run_detect(note_names_all)
 
-            # 3. 策略 B: 旋律剥离
+            # 3. 策略 B: 旋律剥离 (Melody Peeling)
             res_peeled = None
             note_names_peeled = []
 
@@ -101,7 +104,7 @@ class ChordAnalyzer:
                     used_notes = note_names_peeled
                     is_peeled = True
 
-            # 5. 解析多重命名
+            # 5. 解析多重命名 (Aliases)
             raw_result_str = str(final_res) if final_res else ""
             aliases = [s.strip() for s in raw_result_str.replace('\r', '\n').split('\n') if s.strip()]
 
@@ -149,8 +152,10 @@ class ChordAnalyzer:
 # 实例化单例
 analyzer = ChordAnalyzer()
 
+# ==========================================
 # PART 2: Legacy Global Analysis (Preserved)
-# 用于 MIDI 文件上传时的全局 Key/Timeline 分析
+# ==========================================
+# 以下代码完全保留，用于 MIDI 文件上传时的全局 Key/Timeline 分析
 
 TEMP_MAJOR = np.array([5.0, 2.0, 3.5, 2.0, 4.5, 4.0, 2.0, 4.5, 2.0, 3.5, 1.5, 4.0])
 TEMP_MINOR = np.array([5.0, 2.0, 3.5, 4.5, 2.0, 4.0, 2.0, 4.5, 3.5, 2.0, 1.5, 4.0])

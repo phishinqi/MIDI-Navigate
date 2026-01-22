@@ -1,8 +1,10 @@
 import React from 'react';
 import useStore from '@/store/useStore';
 import { useTranslation } from 'react-i18next';
+// [FIX] 关键修改：直接从你的配置文件导入初始化好的实例，而不是从库导入
 import i18n from '@/i18n';
 
+// 导入所有子组件
 import RenderEngineSelection from './InterfaceTabSections/RenderEngineSelection';
 import WsVisualizerButton from './InterfaceTabSections/WsVisualizerButton';
 import ThreeJsSettings from './InterfaceTabSections/ThreeJsSettings';
@@ -16,9 +18,11 @@ import SystemConfig from './InterfaceTabSections/SystemConfig';
 
 const InterfaceTab = () => {
   const renderEngine = useStore(state => state.renderEngine);
+  // 我们只用 useTranslation 来获取 t 函数以触发重渲染
   const { t } = useTranslation();
 
   const handleLanguageChange = (lang) => {
+    // [FIX] 使用导入的全局实例，并添加安全检查
     if (i18n && typeof i18n.changeLanguage === 'function') {
       i18n.changeLanguage(lang).catch(err => console.error("Language change failed:", err));
     } else {
@@ -26,6 +30,7 @@ const InterfaceTab = () => {
     }
   };
 
+  // [FIX] 安全获取当前语言，防止 undefined 报错
   const currentLang = i18n?.language || 'en';
 
   return (
@@ -33,7 +38,7 @@ const InterfaceTab = () => {
 
       {/* 语言切换区域 */}
       <div className="space-y-2">
-        <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+        <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
           {t('settings.language', { defaultValue: 'Language' })}
         </h3>
         <div className="flex gap-1 p-1 bg-black/20 rounded-lg">

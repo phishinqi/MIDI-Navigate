@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import useStore from '@/store/useStore';
 import { Settings, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 引入 i18n
 
 import MixerTab from './SettingsTabs/MixerTab';
 import InterfaceTab from './SettingsTabs/InterfaceTab';
@@ -26,9 +26,9 @@ const TrackSettings = ({ onClose, isLight }) => {
       case 'mixer':
         // 保护 MixerTab，如果没有 MIDI 数据，显示翻译后的提示信息
         return midiData ? <MixerTab /> : (
-            <div className="flex items-center justify-center h-64 text-white/30 italic">
-                {t('settings.no_midi_mixer', { defaultValue: 'No MIDI loaded. Mixer controls are disabled.' })}
-            </div>
+          <div className="flex items-center justify-center h-64 text-white/30 italic">
+            {t('settings.no_midi_mixer', { defaultValue: 'No MIDI loaded. Mixer controls are disabled.' })}
+          </div>
         );
       case 'interface': return <InterfaceTab />;
       case 'grid': return <GridTab />;
@@ -47,27 +47,31 @@ const TrackSettings = ({ onClose, isLight }) => {
 
         {/* HEADER */}
         <div className={`flex flex-col border-b ${headerBg}`}>
-            <div className="flex justify-between items-center p-5 pb-2">
-              <div className="flex items-center gap-2 text-midi-accent">
-                <Settings size={18} />
-                <span className="font-mono font-bold text-lg">
-                  {t('settings.title', { defaultValue: 'Control Panel' })}
-                </span>
-              </div>
-              <button onClick={onClose} className="opacity-50 hover:opacity-100"><X size={20} /></button>
+          <div className="flex justify-between items-center p-5 pb-2">
+            <div className="flex items-center gap-2 text-midi-accent">
+              <Settings size={18} />
+              {/* 标题翻译 */}
+              <span className="font-sans tabular-nums font-bold text-lg">
+                {t('settings.title', { defaultValue: 'Control Panel' })}
+              </span>
             </div>
-            <div className="flex px-5 gap-6 mt-2 overflow-x-auto no-scrollbar">
-                {tabs.map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-all uppercase whitespace-nowrap ${activeTab === tab ? activeTabClass : `border-transparent ${inactiveTabClass}`}`}
-                    >
-                        {t(`settings.sections.${tab}`, { defaultValue: tab })}
-                    </button>
-                ))}
-            </div>
+            <button onClick={onClose} className="opacity-50 hover:opacity-100"><X size={20} /></button>
+          </div>
+          <div className="flex px-5 gap-6 mt-2 overflow-x-auto no-scrollbar">
+            {tabs.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-all uppercase whitespace-nowrap ${activeTab === tab ? activeTabClass : `border-transparent ${inactiveTabClass}`}`}
+              >
+                {/* 标签名翻译：settings.sections.mixer 等 */}
+                {t(`settings.sections.${tab}`, { defaultValue: tab })}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* CONTENT */}
         {renderContent()}
 
       </div>

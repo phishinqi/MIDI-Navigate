@@ -1,4 +1,3 @@
-// frontend\src\components\Visualizer\Visualizer.jsx
 import React from 'react';
 import useStore from '@/store/useStore';
 import EngineP5 from './P5/EngineP5';

@@ -1,5 +1,7 @@
-// frontend/src/lib/theory.js
+89// frontend/src/lib/theory.js
 import { Chord, Note } from "@tonaljs/tonal";
+
+// --- Helpers ---
 
 export const midiToNoteName = (midi) => {
   return Note.fromMidi(midi);
@@ -33,7 +35,7 @@ export const getActiveNoteDetails = (midiData, currentTime, trackIndices, lookba
   return activeNotes;
 };
 
-// 比较两个音符集合是否相同（用于减少 API 调用）
+// [NEW] 比较两个音符集合是否相同（用于减少 API 调用）
 export const areNotesEqual = (prevNotes, nextNotes) => {
     if (!prevNotes || !nextNotes) return false;
     if (prevNotes.length !== nextNotes.length) return false;
@@ -48,7 +50,7 @@ export const areNotesEqual = (prevNotes, nextNotes) => {
     return true;
 };
 
-// 本地快速检测 (作为服务端的 Fallback 或预览)
+// [NEW] 本地快速检测 (作为服务端的 Fallback 或预览)
 export const detectLocalChord = (midiNumbers) => {
   if (!midiNumbers || midiNumbers.length < 2) return { name: "---", confidence: 0 };
   const noteNames = midiNumbers.map(m => Note.fromMidi(m));

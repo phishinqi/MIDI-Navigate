@@ -6,7 +6,7 @@ import useStore from '../../../store/useStore.js';
 import { getDrumVisuals } from '../../../lib/percussionMap.js';
 import { GridSliceMaterial } from '../../../shaders/GridSliceShader.js';
 
-// --- 常量定义 ---
+// --- 常量定义 (内存优化) ---
 const tempObject = new THREE.Object3D();
 const tempColor = new THREE.Color();
 // 闪光颜色：超亮的白色，配合 Bloom 产生爆发感
@@ -27,7 +27,9 @@ const PercussionGrid3D = () => {
 
   const meshKey = `grid-slice-${rows}-${cols}`;
 
-  // 1. 数据解析 - 将 MIDI 转换为基于小节(Bar)的步进数据
+  // ==================================================================================
+  // 1. 数据解析 (Data Parsing) - 将 MIDI 转换为基于小节(Bar)的步进数据
+  // ==================================================================================
   const barData = useMemo(() => {
     if (!midiData) return [];
     let drumNotes = [];
@@ -122,7 +124,9 @@ const PercussionGrid3D = () => {
     return bars;
   }, [midiData]);
 
-  // 2. 布局初始化
+  // ==================================================================================
+  // 2. 布局初始化 (Layout Initialization)
+  // ==================================================================================
   useLayoutEffect(() => {
       if (!enabled) return;
 
@@ -183,7 +187,9 @@ const PercussionGrid3D = () => {
       });
   }, [rows, cols, cellSize, spacing, positionY, positionZ, enabled, viewport.width, viewport.height]);
 
-  // 3. 渲染循环
+  // ==================================================================================
+  // 3. 核心渲染循环 (Animation Loop)
+  // ==================================================================================
   useFrame(() => {
     if (!enabled || !meshRef0.current || !meshRef1.current || barData.length === 0) return;
 
@@ -272,6 +278,7 @@ const PercussionGrid3D = () => {
         for (let i = 0; i < maxCells; i++) {
             const step = cellStates[i];
 
+            // 计算基础物理位置
             const r = Math.floor(i / cols);
             const c = i % cols;
             const visualRow = rows - 1 - r;
@@ -290,8 +297,8 @@ const PercussionGrid3D = () => {
                 // 2. 物理动画 (Matrix Physics)
                 // 指数衰减 Punch: 触发瞬间 1.0 -> 随时间迅速归零
                 const punch = Math.exp(-age * 12);
-                const scaleAnim = 1.0 + punch * 0.4;
-                const zAnim = punch * 0.5;
+                const scaleAnim = 1.0 + punch * 0.4; // 瞬间放大 1.4倍
+                const zAnim = punch * 0.5; // 向前突出
 
                 tempObject.position.set(baseX, baseY + finalGridCenterY, positionZ + zAnim);
                 tempObject.scale.set(effectiveCellSize * scaleAnim, effectiveCellSize * scaleAnim, 1);
@@ -355,11 +362,12 @@ const PercussionGrid3D = () => {
                     alpha = Math.max(0, alpha - 0.08);
                     alphaAttr.setX(i, alpha);
 
+                    // 消失特效：缩小并略微后退
                     fadingMesh.getMatrixAt(i, tempObject.matrix);
                     tempObject.matrix.decompose(tempObject.position, tempObject.quaternion, tempObject.scale);
 
-                    tempObject.scale.multiplyScalar(0.92);
-                    tempObject.position.z -= 0.02;
+                    tempObject.scale.multiplyScalar(0.92); // 缩小
+                    tempObject.position.z -= 0.02; // 后退
 
                     tempObject.updateMatrix();
                     fadingMesh.setMatrixAt(i, tempObject.matrix);

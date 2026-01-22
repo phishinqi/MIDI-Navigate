@@ -28,6 +28,8 @@ def get_resource_path(relative_path):
 
 # 指向 dist 根目录
 DIST_ROOT = get_resource_path("dist")
+
+# 预先定义好关键文件的绝对路径
 PATH_ASSETS = os.path.join(DIST_ROOT, "assets")
 PATH_WS_DIR = os.path.join(DIST_ROOT, "ws")
 PATH_WS_HTML = os.path.join(PATH_WS_DIR, "index.html")
@@ -90,7 +92,7 @@ app.include_router(endpoints.router, prefix=settings.API_V1_STR)
 
 # --- 6. 静态文件与前端托管 [终极修正版] ---
 
-# 启动时打印调试信息
+# 启动时打印调试信息 (方便在控制台确认路径)
 print("-" * 50)
 print(f"Path Check:")
 print(f"Root: {DIST_ROOT}")
@@ -100,7 +102,7 @@ print(f"Main HTML: {PATH_FRONTEND_HTML} -> {os.path.exists(PATH_FRONTEND_HTML)}"
 print("-" * 50)
 
 if os.path.exists(DIST_ROOT):
-    # A. 挂载公共资源 /assets
+    # A. 挂载公共资源 /assets (优先级最高)
     if os.path.exists(PATH_ASSETS):
         app.mount("/assets", StaticFiles(directory=PATH_ASSETS), name="assets")
 
@@ -157,7 +159,11 @@ else:
 # --- 7. 启动逻辑 (含 colorama 和 WebSocket 修复) ---
 if __name__ == "__main__":
 
+    # 初始化颜色
     colorama.init(autoreset=True)
+
+    # [已修改] 移除文件日志配置，仅保留基础配置（默认输出到控制台/stderr）
+    # 这样就不会在文件夹里生成 server_debug.log 了
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -179,5 +185,6 @@ if __name__ == "__main__":
         uvicorn.run(app, host=host, port=port, log_level="info", reload=False, use_colors=True)
 
     except Exception as e:
+        # 如果崩溃，仅在控制台打印错误，不再写文件
         logging.error(f"Crash: {str(e)}", exc_info=True)
         print(f"Crash: {str(e)}")

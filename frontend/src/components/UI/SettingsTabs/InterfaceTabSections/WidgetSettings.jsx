@@ -2,10 +2,10 @@
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Layout, Sliders } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const WidgetSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const showPlayerWidget = useStore(state => state.showPlayerWidget);
     const togglePlayerWidget = useStore(state => state.togglePlayerWidget);
     const showAnalysisWidget = useStore(state => state.showAnalysisWidget);
@@ -34,7 +34,7 @@ const WidgetSettings = () => {
 
     return (
         <div className="space-y-4">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('widgets.title', { defaultValue: 'Widgets' })}
             </h3>
             {items.map((item, i) => (

@@ -3,10 +3,10 @@ import React from 'react';
 import useStore from '@/store/useStore';
 import * as Switch from '@radix-ui/react-switch';
 import { Server, Cpu, Gauge, List } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const AnalysisSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const chordDetectionMode = useStore(state => state.chordDetectionMode);
     const setChordDetectionMode = useStore(state => state.setChordDetectionMode);
     const analysisSensitivity = useStore(state => state.analysisSensitivity);
@@ -14,6 +14,7 @@ const AnalysisSettings = () => {
     const analysisComplexity = useStore(state => state.analysisComplexity);
     const setAnalysisComplexity = useStore(state => state.setAnalysisComplexity);
 
+    // 辅助函数：获取灵敏度的显示文本
     const getSensitivityLabel = (val) => {
         if (val === 1) return t('analysis_settings.sensitivity.high_label', { defaultValue: 'High (2s)' });
         if (val === 3) return t('analysis_settings.sensitivity.low_label', { defaultValue: 'Low (10s)' });
@@ -22,7 +23,7 @@ const AnalysisSettings = () => {
 
     return (
         <div className="space-y-4">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('analysis_settings.title', { defaultValue: 'Analysis Engine' })}
             </h3>
 
@@ -51,7 +52,7 @@ const AnalysisSettings = () => {
                         <Gauge size={16} />
                         {t('analysis_settings.sensitivity.title', { defaultValue: 'Sensitivity' })}
                     </div>
-                    <span className="font-mono opacity-50">{getSensitivityLabel(analysisSensitivity)}</span>
+                    <span className="font-sans tabular-nums opacity-50">{getSensitivityLabel(analysisSensitivity)}</span>
                 </div>
                 <div className="flex gap-1">
                     {[1, 2, 3].map(v => (
@@ -72,8 +73,8 @@ const AnalysisSettings = () => {
                         <List size={16} />
                         {t('analysis_settings.scale_library', { defaultValue: 'Scale Library' })}
                     </div>
-                    <span className="font-mono opacity-50 capitalize">
-                         {t(`analysis_settings.complexity.${analysisComplexity}`, { defaultValue: analysisComplexity })}
+                    <span className="font-sans tabular-nums opacity-50 capitalize">
+                        {t(`analysis_settings.complexity.${analysisComplexity}`, { defaultValue: analysisComplexity })}
                     </span>
                 </div>
                 <div className="flex gap-1">

@@ -1,6 +1,10 @@
 // frontend/src/components/Visualizer/P5/P5Utils.js
 import { getDrumVisuals } from '@/lib/percussionMap';
 
+// ==========================================
+// NEW: Cubic Bezier Easing Function Generator
+// ==========================================
+
 const NEWTON_ITERATIONS = 4;
 const NEWTON_MIN_SLOPE = 0.001;
 const kSplineTableSize = 11;
@@ -58,6 +62,10 @@ export const createBezier = (mX1, mY1, mX2, mY2) => {
 };
 
 
+// ==========================================
+// 1. CONFIGURATION & HELPERS
+// ==========================================
+
 export const CONFIG = {
   SHRINK_SPEED: 0.05,
   GROW_SPEED: 3.0,
@@ -93,7 +101,11 @@ const getLayout = (p, settings) => {
 
   return { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH };
 };
+
+// ==========================================
 // 2. MIDI DATA PROCESSING
+// ==========================================
+
 export const calculateMeasureMap = (midi) => {
   if (!midi || !midi.header) return [];
   const ppq = midi.header.ppq || 480;
@@ -167,7 +179,9 @@ export const getBarInfoAtTime = (measures, time) => {
   return measures[measures.length - 1];
 };
 
+// =================================================================
 // MODIFIED: cacheNotesForBar now has special "greedy" logic for meteor mode.
+// =================================================================
 export const cacheNotesForBar = (p, midi, measure, settings, visibleTracks, percussionSettings, trackColors = {}, useDefaultColors = true) => {
   const notes = [];
   if (!measure) return notes;
@@ -269,7 +283,9 @@ export const getDrumStepsForMeasure = (midi, measure, visibleTracks) => {
 };
 
 
+// ==========================================
 // 3. RENDERING LOGIC (绘制逻辑)
+// ==========================================
 
 export const drawBackground = (p, bgColor, settings) => {
   if (bgColor) {
@@ -286,11 +302,16 @@ export const drawBackground = (p, bgColor, settings) => {
   for (let i = 1; i < 4; i++) p.line(beatX * i, 0, beatX * i, p.height);
   p.line(0, p.height / 2, p.width, p.height / 2);
 };
+
+// =================================================================
+// FINAL: Animation logic for 'meteor' mode based on individual lifecycle.
+// =================================================================
 const getMeteorShrinkProgress = (note, audioTime, settings, fadeCurve) => {
   const fadeEaser = createBezier(...(fadeCurve || [0.42, 0, 1, 1]));
   const holdDuration = settings.meteorHoldTime || 0.5;
   const baseFadeDuration = settings.meteorFadeTime || 1.5;
 
+  // [FIX] 让消逝时长与音符长度成比例，避免长音符消失太快
   // 音符越长，给予更长的消逝时间（最小为baseFadeDuration，最大为音符时长的1.5倍）
   const noteDuration = note.ratioW * note.measureDuration;
   const scaledFadeDuration = Math.max(baseFadeDuration, Math.min(noteDuration * 1.5, baseFadeDuration * 3));
@@ -319,6 +340,7 @@ export const drawNotes = (p, notes, audioTime, settings, growCurve = [0.1, 0.85,
     const playheadRatio = (audioTime - measureStart) / measureDuration;
 
     // 1. 获取用户定义的开始时间，如果没有设置则默认为 0.45
+    // 你可以在 settings 中添加一个 'fadeStartRatio' 字段
     const FADE_START_RATIO = settings?.fadeStartRatio ?? 0.45;
 
     if (playheadRatio > FADE_START_RATIO) {
@@ -481,7 +503,7 @@ export const drawPreviousNotes = (p, notes, audioTime, settings, timeSinceTransi
       // 计算可视的起始位置（被扫描线吃掉的部分）
       const visibleStart = Math.max(noteStart, wipeLine);
 
-      // 计算可视的结束位置（限制在页面右边界 1.0 以内）
+      // [FIX] 关键修复：计算可视的结束位置（限制在页面右边界 1.0 以内）
       // 防止音符绘制超出 effectiveWidth 区域
       const visibleEnd = Math.min(noteEnd, 1.0);
 
@@ -521,5 +543,6 @@ export const drawIdleScreen = (p, bgColor) => {
   p.fill(255, 50);
   p.textAlign(p.CENTER, p.CENTER);
   p.textSize(16);
+  p.textFont('Inter');
   p.text("WAITING FOR MIDI", p.width / 2, p.height / 2);
 };

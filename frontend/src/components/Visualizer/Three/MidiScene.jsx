@@ -54,7 +54,7 @@ const MidiScene = () => {
   const groupRef = useRef();
   const playheadRef = useRef();
 
-  // 增加一个 Ref 标记是否已初始化矩阵
+  // [核心修复] 增加一个 Ref 标记是否已初始化矩阵
   const isInitialized = useRef(false);
 
   const midiData = useStore(state => state.midiData);
@@ -227,7 +227,7 @@ const MidiScene = () => {
   useFrame(() => {
     if (!meshRef.current || !glowRef.current || !groupRef.current) return;
 
-    // 如果发现还没初始化（比如刚切换回来），强制跑一次全量更新
+    // [核心修复] 如果发现还没初始化（比如刚切换回来），强制跑一次全量更新
     // 这解决了 React 调度导致的 useLayoutEffect 偶尔失效或 WebGL 上下文重建的问题
     if (!isInitialized.current && count > 0) {
       updateAllMatrices();
@@ -273,16 +273,18 @@ const MidiScene = () => {
         continue;
       }
 
+      // 恢复逻辑 (如果之前被隐藏了)
       meshRef.current.getMatrixAt(i, tempObject.matrix);
       tempObject.matrix.decompose(tempObject.position, tempObject.quaternion, tempObject.scale);
 
       if (tempObject.scale.x === 0) {
-        // 恢复时必须重新设置 Position，否则它会呆在 (0,0,0)
+        // [关键] 恢复时必须重新设置 Position，否则它会呆在 (0,0,0)
         tempObject.position.set(data.x + data.w / 2, data.y, 0);
         tempObject.scale.set(data.w, data.h, 1);
         tempObject.updateMatrix();
         meshRef.current.setMatrixAt(i, tempObject.matrix);
 
+        // 恢复 Glow
         const glowPadding = 0.5 * data.velScale;
         const glowW = data.w + glowPadding;
         const glowH = data.h * 4.0 * data.velScale;

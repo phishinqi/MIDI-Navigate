@@ -1,6 +1,6 @@
 # MIDI-Navigate
 
-MIDI-Navigate 是一个现代化的 MIDI 可视化工具，结合了 React 前端和 Python 后端，提供沉浸式的 3D/2D 音乐可视化体验。
+MIDI-Navigate 是一个现代化的 MIDI 可视化工具，结合了 React 前端和 Python 后端，提供沉浸式的 3D/2D 音乐可视化体验。由 **PurrNeko** 开发。
 
 ## ✨ 主要特性
 

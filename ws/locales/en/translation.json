@@ -1,0 +1,38 @@
+{
+    "ws_visualizer": {
+        "title": "Visualizer Settings",
+        "sections": {
+            "analysis": "Analysis Engine",
+            "sequencer": "Sequencer",
+            "percussion": "Percussion",
+            "channels": "Channel Mask"
+        },
+        "analysis": {
+            "active": "Analysis Active",
+            "display_mode": "Display Mode",
+            "chord": "Chord",
+            "roman": "Roman",
+            "auto_detect": "Auto Detect Scale",
+            "memory": "Memory (s)",
+            "sensitivity": "Sensitivity",
+            "key_root": "Key Root",
+            "key_type": "Key Type"
+        },
+        "sequencer": {
+            "scroll_direction": "Scroll Direction",
+            "left": "Left",
+            "right": "Right",
+            "playhead_position": "Playhead Position",
+            "pitch_scale": "Pitch Scale",
+            "note_height": "Note Height"
+        },
+        "percussion": {
+            "enabled": "Percussion Enabled",
+            "midi_channel": "MIDI Channel"
+        },
+        "status": {
+            "connected": "Connected",
+            "disconnected": "Disconnected"
+        }
+    }
+}

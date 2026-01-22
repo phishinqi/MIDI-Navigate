@@ -1,4 +1,3 @@
-// frontend\src\App.jsx
 import React, { useState, useEffect } from 'react';
 import FileUpload from '@/components/UI/FileUpload';
 import Visualizer from '@/components/Visualizer/Visualizer';
@@ -51,6 +50,7 @@ function App() {
         case 'KeyO': e.preventDefault(); handleGlobalFileUpload(); break;
         case 'KeyM': e.preventDefault(); toggleMute(); break;
         case 'KeyZ': e.preventDefault(); toggleZenMode(); break;
+        // 修改：移除了 if (midiData) 检查，允许随时打开设置
         case 'KeyS': e.preventDefault(); setShowSettings((prev) => !prev); break;
         default: break;
       }
@@ -87,13 +87,12 @@ function App() {
         )}
       </div>
       <div
-        className={`absolute inset-0 z-50 flex flex-col justify-between p-6 transition-opacity duration-500 ${
-          isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
-        }`}
+        className={`absolute inset-0 z-50 flex flex-col justify-between p-6 transition-opacity duration-500 ${isZenMode ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
+          }`}
       >
         <header className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold tracking-tighter font-mono">MIDI-Navigate</h1>
+            <h1 className="text-2xl font-bold tracking-tighter font-sans tabular-nums">MIDI-Navigate</h1>
             <p className={`text-xs tracking-widest uppercase mt-1 opacity-50`}>- By. PurrNeko</p>
           </div>
         </header>
@@ -119,6 +118,7 @@ function App() {
       </div>
 
       <div className={`absolute top-6 right-6 z-[60] flex items-center gap-3 transition-opacity duration-500 ${isZenMode ? 'opacity-0 hover:opacity-100' : 'opacity-100'} pointer-events-auto`}>
+        {/* 修改：移除了 {midiData && (...)} 包裹，使设置按钮常驻显示 */}
         <button onClick={() => setShowSettings(true)} className={`p-2 rounded-full transition-all backdrop-blur-sm cursor-pointer ${btnClass}`} title="Settings [S]">
           <Settings size={20} />
         </button>

@@ -3,22 +3,38 @@ import { getDrumVisuals } from '@/lib/percussionMap';
 
 // --- 音符类型映射 ---
 const NOTE_TYPES = {
+    // --- 核心低频 ---
     KICK: [35, 36], // Acoustic Bass Drum, Bass Drum 1
-    SNARE: [38, 40],       // Acoustic Snare, Electric Snare
-    RIM: [37],             // Side Stick
-    CLAP: [39],            // Hand Clap
+
+    // --- 军鼓类 (拆分以触发不同几何图形) ---
+    SNARE: [38, 40],       // Acoustic Snare, Electric Snare (标准方框)
+    RIM: [37],             // Side Stick (触发十字准星)
+    CLAP: [39],            // Hand Clap (触发叠影方块)
+
+    // --- 踩镲类 ---
     HAT_CLOSED: [42, 44],  // Closed Hi-Hat, Pedal Hi-Hat (44是脚踩，通常也算闭镲类)
     HAT_OPEN: [46],        // Open Hi-Hat
+
+    // --- 通鼓类 (保持不变) ---
     TOM_HI: [48, 50],      // Hi-Mid Tom, High Tom
     TOM_MID: [45, 47],     // Low Tom, Low-Mid Tom
     TOM_LOW: [41, 43],     // Low Floor Tom, High Floor Tom
-    CRASH: [49, 57],       // Crash Cymbal 1, Crash Cymbal 2
-    SPLASH: [55],          // Splash Cymbal
-    CHINA: [52],           // Chinese Cymbal 
+
+    // --- 镲片类 (拆分以触发不同纹理) ---
+    CRASH: [49, 57],       // Crash Cymbal 1, Crash Cymbal 2 (标准扫描线)
+    SPLASH: [55],          // Splash Cymbal (触发小涟漪)
+    CHINA: [52],           // Chinese Cymbal (触发锯齿环)
     RIDE: [51, 59, 53],    // Ride Cymbal 1, Ride Cymbal 2, Ride Bell
+
+    // --- 打击乐/纹理 (大幅补充) ---
+    // 触发粒子云 (沙沙声)
     SHAKER: [69, 70, 82],  // Cabasa, Maracas, Shaker
+    // 触发梯形 (牛铃)
     COWBELL: [56],         // Cowbell
+    // 触发带点的圆环 (铃鼓)
     TAMBOURINE: [54],      // Tambourine
+
+    // 其他打击乐 (通常映射到 Toms 或 Perc 逻辑)
     BONGO: [60, 61],       // Hi/Lo Bongo
     CONGA: [62, 63, 64],   // Mute/Open/Lo Conga
     TIMBALE: [65, 66],     // Hi/Lo Timbale
@@ -33,9 +49,14 @@ const getType = (midi) => {
     }
     return 'OTHER';
 };
+
+// ==================================================================================
+// 主入口函数
+// ==================================================================================
 export const drawPercussionGrid = (p, drumSteps, audioTime, settings, backgroundColor = '#000000') => {
   if (!settings.enabled) return;
 
+  // --- 新增：计算是否为浅色背景 ---
   // 使用 P5 的 color() 解析颜色，然后计算感知亮度 (Luma)
   // 阈值设为 128 (0-255中间值)，大于此值认为是浅色背景
   const bgCol = p.color(backgroundColor);
@@ -63,7 +84,7 @@ export const drawPercussionGrid = (p, drumSteps, audioTime, settings, background
   p.push();
   p.translate(startX, startY);
 
-  // --- 2. 绘制网格底座---
+  // --- 2. 绘制网格底座 (Dim Background) ---
   p.noStroke();
   p.rectMode(p.CORNER);
 
@@ -92,6 +113,7 @@ export const drawPercussionGrid = (p, drumSteps, audioTime, settings, background
           const comp = analyzeStepComponents(step.notes);
           const age = audioTime - step.time;
 
+          // [路由逻辑] 根据设置切换风格
           if (settings.p5Style === 'energy') {
               drawStyleEnergy(p, x, y, cellSize, comp, age);
           } else if (settings.p5Style === 'monochrome') {
@@ -104,21 +126,23 @@ export const drawPercussionGrid = (p, drumSteps, audioTime, settings, background
   }
   p.pop();
 };
-// 数据分析辅助函数
+
+// 数据分析辅助函数 (修复版)
+// ==================================================================================
 const analyzeStepComponents = (notes) => {
     // 初始化对象：既包含旧风格需要的数组，也包含新风格需要的独立属性
     const c = {
         kick: null,
-        snare: null,
-        toms: [],
-        tom: null,
+        snare: null,        // 用于 Mono 风格的 { type: 'RIM'/'CLAP' }
+        toms: [],           // 旧风格用数组
+        tom: null,          // Mono 风格用单体对象 { type: 'HIGH' }
         hat: null,
-        cymbals: [],
-        crash: null,
-        ride: null,
-        perc: null,
-        shaker: null,
-        cowbell: null,
+        cymbals: [],        // 旧风格用数组
+        crash: null,        // Mono 风格专用
+        ride: null,         // Mono 风格专用
+        perc: null,         // 通用打击乐
+        shaker: null,       // Mono 风格专用
+        cowbell: null,      // Mono 风格专用
         baseColor: null
     };
 
@@ -130,29 +154,43 @@ const analyzeStepComponents = (notes) => {
         // 记录颜色
         if (!c.baseColor && type !== 'OTHER') c.baseColor = visual.color;
 
+        // --- 1. Kick ---
         if (type === 'KICK') {
             if (!c.kick || vel > c.kick.vel) c.kick = { vel, color: visual.color };
         }
+
+        // --- 2. Snare / Rim / Clap ---
         else if (type === 'SNARE') c.snare = { type: 'STANDARD', color: visual.color };
-        else if (type === 'RIM')   c.snare = { type: 'RIM', color: visual.color };
+        else if (type === 'RIM')   c.snare = { type: 'RIM', color: visual.color }; // 映射到 snare.type
         else if (type === 'CLAP')  c.snare = { type: 'CLAP', color: visual.color };
+
+        // --- 3. Hats ---
         else if (type === 'HAT_CLOSED') c.hat = { type: 'CLOSED', color: visual.color };
         else if (type === 'HAT_OPEN')   c.hat = { type: 'OPEN', color: visual.color };
+
+        // --- 4. Toms (同时填充数组和单体属性) ---
         else if (type.startsWith('TOM')) {
             let tomType = 'MID';
             if (type === 'TOM_HI') tomType = 'HIGH';
             if (type === 'TOM_LOW') tomType = 'LOW';
+
+            // 兼容旧风格
             c.toms.push({ type: tomType, color: visual.color });
+            // 适配 Mono 风格 (取最后一个检测到的 Tom)
             c.tom = { type: tomType, color: visual.color };
         }
+
+        // --- 5. Cymbals (Ride, Crash, China, Splash) ---
         else if (type === 'RIDE') {
             c.cymbals.push({ type: 'RIDE', color: visual.color });
-            c.ride = { type: 'RIDE', color: visual.color };
+            c.ride = { type: 'RIDE', color: visual.color }; // 显式设置 ride 属性
         }
         else if (type === 'CRASH' || type === 'CHINA' || type === 'SPLASH') {
             c.cymbals.push({ type: type, color: visual.color });
-            c.crash = { type: type, color: visual.color };
+            c.crash = { type: type, color: visual.color }; // 显式设置 crash 属性
         }
+
+        // --- 6. Percussion (Shaker, Cowbell, Tambourine) ---
         else if (type === 'SHAKER') {
             c.shaker = true;
             c.perc = { type: 'SHAKER', color: visual.color };
@@ -165,9 +203,11 @@ const analyzeStepComponents = (notes) => {
             c.perc = { type: 'TAMBOURINE', color: visual.color };
         }
         else if (type === 'BONGO' || type === 'CONGA' || type === 'TIMBALE') {
+            // 邦戈/康加通常视觉上类似高音 Tom
              c.tom = { type: 'HIGH', color: visual.color };
         }
         else if (type === 'PERC' || type === 'WOODBLOCK' || type === 'CLAVES' || type === 'TRIANGLE') {
+            // 其他杂项映射为通用 Perc
             c.perc = { type: 'GENERIC', color: visual.color };
         }
     });
@@ -181,7 +221,10 @@ const analyzeStepComponents = (notes) => {
 const getEnergy = (age, decaySpeed = 8) => {
     return Math.max(0, Math.exp(-age * decaySpeed) - 0.01);
 };
-// 风格 1: Geometric / Reactor
+
+// ==================================================================================
+// 风格 1: Geometric / Reactor (同心圆几何风格 - 默认)
+// ==================================================================================
 const drawStepGlyph = (p, x, y, s, comp, age) => {
     const energy = Math.max(0, Math.exp(-age * 6) - 0.01);
     if (energy < 0.01) return;
@@ -203,6 +246,7 @@ const drawStepGlyph = (p, x, y, s, comp, age) => {
         return p.lerpColor(c, p.color(255), flashAmt);
     };
 
+    // Kick: 实心圆
     if (comp.kick) {
         const kColor = getHotColor(comp.kick.color);
         p.noStroke();
@@ -211,12 +255,15 @@ const drawStepGlyph = (p, x, y, s, comp, age) => {
         const kickSize = maxR * 2 * (0.8 + energy * 0.2) * (age < 0.1 ? punch : 1);
         p.circle(0, 0, kickSize);
     }
+    // Toms: 空心圆
     else if (comp.toms.length > 0) {
         const tColor = getHotColor(comp.toms[0].color);
         p.noStroke();
         p.fill(tColor);
         p.circle(0, 0, maxR * 1.6 * energy);
     }
+
+    // Hats: 轨道光环
     if (comp.hat) {
         const hColor = getHotColor(comp.hat.color);
         p.noFill();
@@ -233,6 +280,7 @@ const drawStepGlyph = (p, x, y, s, comp, age) => {
         }
     }
 
+    // Snare/Core: 中心几何体
     if (comp.snare || comp.perc) {
         let coreColor = comp.kick ? p.color(255) : getHotColor(comp.snare?.color || comp.perc.color);
         p.noStroke();
@@ -257,6 +305,8 @@ const drawStepGlyph = (p, x, y, s, comp, age) => {
             p.rect(0, 0, size, size, 3);
         }
     }
+
+    // Cymbals: 扩散圈
     if (comp.cymbals.length > 0) {
         const cColor = getHotColor(comp.cymbals[0].color);
         p.noFill();
@@ -269,7 +319,9 @@ const drawStepGlyph = (p, x, y, s, comp, age) => {
     p.pop();
 };
 
-// 风格 2: Energy / Particle
+// ==================================================================================
+// 风格 2: Energy / Particle (粒子爆炸风格)
+// ==================================================================================
 const drawStyleEnergy = (p, x, y, s, comp, age) => {
     const energy = getEnergy(age, 7);
     if (energy < 0.01) return;
@@ -281,6 +333,7 @@ const drawStyleEnergy = (p, x, y, s, comp, age) => {
     p.translate(cx, cy);
     p.blendMode(p.ADD);
 
+    // Kick: 呼吸圈
     if (comp.kick) {
         p.noFill();
         p.stroke(comp.kick.color);
@@ -289,6 +342,7 @@ const drawStyleEnergy = (p, x, y, s, comp, age) => {
         p.circle(0, 0, s * 0.8 * energy);
     }
 
+    // Snare: 放射线
     if (comp.snare || comp.perc) {
         const c = comp.snare?.color || comp.perc.color;
         p.stroke(c);
@@ -303,6 +357,7 @@ const drawStyleEnergy = (p, x, y, s, comp, age) => {
         p.rotate(-age * 10);
     }
 
+    // Hat: 故障噪点
     if (comp.hat) {
         const hColor = comp.hat.color;
         p.stroke(hColor);
@@ -320,23 +375,26 @@ const drawStyleEnergy = (p, x, y, s, comp, age) => {
     p.pop();
 };
 
-// 风格 3: Monochrome / Blueprint
+// ==================================================================================
+// 风格 3: Monochrome / Blueprint (单色蓝图/战术风格) - [NEW]
+// ==================================================================================
 // 增加了最后一个参数 useDarkInk (默认为 false)
 const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
+    // --- 1. 基础设置 ---
     const energy = Math.max(0, Math.exp(-age * 8) - 0.01);
     if (energy < 0.01) return;
 
     const cx = x + s / 2;
     const cy = y + s / 2;
 
-    // 根据模式决定颜色和混合模式
+    // [关键修改]：根据模式决定颜色和混合模式
     // 如果是浅色背景(useDarkInk)，用深灰色；否则用纯白
     const monoColor = useDarkInk ? p.color(20, 20, 20) : p.color(255, 255, 255);
 
     p.push();
     p.translate(cx, cy);
 
-    // 浅色背景用 BLEND (正常绘制)，深色背景用 ADD (发光叠加)
+    // [关键修改]：浅色背景用 BLEND (正常绘制)，深色背景用 ADD (发光叠加)
     p.blendMode(useDarkInk ? p.BLEND : p.ADD);
 
     // setAlpha 保持逻辑不变，但现在基于动态的 monoColor
@@ -348,6 +406,7 @@ const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
         return c;
     };
 
+    // --- 2. Kick: 底鼓 ---
     if (comp.kick) {
         p.noStroke();
         p.fill(setAlpha(energy * 0.9));
@@ -359,6 +418,8 @@ const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
         const waveR = s * 0.4 + (s * 0.4 * (1 - energy));
         p.circle(0, 0, waveR);
     }
+
+    // --- 3. Toms: 通鼓 ---
     if (comp.tom) {
         p.noFill();
         p.stroke(setAlpha(energy * 0.8));
@@ -385,6 +446,8 @@ const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
         p.line(0, 0, 0, -r);
         p.pop();
     }
+
+    // --- 4. Snare/Clap/Rim: 军鼓组 ---
     if (comp.snare || comp.clap) {
         p.noFill();
         p.stroke(setAlpha(energy));
@@ -421,6 +484,8 @@ const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
         }
         p.pop();
     }
+
+    // --- 5. Hats: 踩镲 ---
     if (comp.hat) {
         p.stroke(setAlpha(energy * 0.8));
         p.noFill();
@@ -445,6 +510,8 @@ const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
             }
         }
     }
+
+    // --- 6. Ride: 叮镲 ---
     if (comp.ride) {
         p.noFill();
         p.stroke(setAlpha(energy * 0.6));
@@ -460,6 +527,8 @@ const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
         p.strokeWeight(s * 0.06);
         p.point(0, 0);
     }
+
+    // --- 7. Crash/Cymbals: 强音镲 ---
     const isCrash = comp.crash || (Array.isArray(comp.cymbals) && comp.cymbals.length > 0);
     if (isCrash) {
         p.noFill();
@@ -478,6 +547,8 @@ const drawStyleMonochrome = (p, x, y, s, comp, age, useDarkInk = false) => {
              p.endShape(p.CLOSE);
         }
     }
+
+    // --- 8. Percussion ---
     if (comp.shaker || (comp.perc && comp.perc.type === 'SHAKER')) {
         p.stroke(setAlpha(energy * 0.7));
         p.strokeWeight(2);

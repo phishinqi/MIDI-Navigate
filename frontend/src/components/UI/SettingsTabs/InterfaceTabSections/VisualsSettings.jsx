@@ -2,10 +2,10 @@
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Zap, Sun, Moon } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const VisualsSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const isGlowEnabled = useStore(state => state.isGlowEnabled);
     const toggleGlow = useStore(state => state.toggleGlow);
     const autoTextContrast = useStore(state => state.autoTextContrast);
@@ -21,7 +21,7 @@ const VisualsSettings = () => {
 
     return (
         <div className="space-y-4">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('visuals.title', { defaultValue: 'Visuals' })}
             </h3>
 

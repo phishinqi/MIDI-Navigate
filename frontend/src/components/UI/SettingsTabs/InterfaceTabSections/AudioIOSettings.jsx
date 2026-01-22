@@ -3,10 +3,10 @@ import React from 'react';
 import useStore from '@/store/useStore';
 import { audioEngine } from '@/audio/AudioEngine';
 import { Cable, Volume2, VolumeX } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const AudioIOSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const midiOutputs = useStore(state => state.midiOutputs);
     const selectedMidiOutput = useStore(state => state.selectedMidiOutput);
     const setSelectedMidiOutput = useStore(state => state.setSelectedMidiOutput);
@@ -26,7 +26,7 @@ const AudioIOSettings = () => {
 
     return (
         <div className="space-y-4">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('audio_io.title', { defaultValue: 'Audio & MIDI I/O' })}
             </h3>
 
@@ -38,7 +38,7 @@ const AudioIOSettings = () => {
                             <Cable size={16} />
                             {t('audio_io.midi_output', { defaultValue: 'MIDI Output' })}
                         </div>
-                        <span className="font-mono opacity-50 text-[10px]">
+                        <span className="font-sans tabular-nums opacity-50 text-[10px]">
                             {midiOutputs.length > 0
                                 ? t('audio_io.status.active', { defaultValue: 'Active' })
                                 : t('audio_io.status.no_devices', { defaultValue: 'No Devices' })}

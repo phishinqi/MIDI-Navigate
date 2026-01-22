@@ -43,7 +43,7 @@ export const api = {
     return response.json();
   },
 
-  // Real-time Chord Analysis
+  // [NEW] Real-time Chord Analysis
   analyzeChord: async (notes) => {
     const response = await fetch(`${API_BASE}/analyze/chord`, {
       method: "POST",

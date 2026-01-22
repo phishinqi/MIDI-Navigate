@@ -7,18 +7,28 @@ import {
 import { drawPercussionGrid } from './PercussionGridP5';
 
 export const createSketch = (containerRef) => (p) => {
+  // --- Runtime State ---
   let measureMap = [];
+
+  // Melodic Notes
   let cachedNotesCurrent = [];
   let cachedNotesPrev = [];
+
+  // Percussion Steps
   let cachedDrumSteps = [];
-  let cachedPageIndex = -2;
-  let lastPageIndex = -1;
+
+  // Logic Flags
+  let cachedPageIndex = -2; // 替换原有的 cachedBarIndex
+  let lastPageIndex = -1;   // 替换原有的 lastBarIndex
+
   let lastMidiData = null;
   let lastVisibleTracksRef = null;
   let lastPercussionEnabledRef = null;
-  let lastMeasuresPerPage = -1;
-  let lastTrackColors = null;
-  let lastUseDefaultTrackColors = true;
+  let lastMeasuresPerPage = -1; // 记录配置以便检测更改
+  let lastTrackColors = null; // 记录轨道颜色
+  let lastUseDefaultTrackColors = true; // 记录是否使用默认颜色
+
+  // 记录翻页时间与上一小节时长
   let transitionStartTime = 0;
 
   p.setup = () => {
@@ -59,7 +69,7 @@ export const createSketch = (containerRef) => (p) => {
       lastPercussionEnabledRef = null;
     }
 
-    // --- 3. Timing Calculation ---
+    // --- 3. Timing Calculation (Multi-Measure Page Logic) ---
     const audioTime = Tone.Transport.seconds;
 
     // 获取当前处于哪一个具体的小节
@@ -105,12 +115,12 @@ export const createSketch = (containerRef) => (p) => {
 
     // --- State Update Logic ---
 
-    // A. 翻页检测
+    // A. 翻页检测 (基于 Page Index 而非 Bar Index)
     if (currentPageIndex !== lastPageIndex) {
       if (lastPageIndex !== -1 && currentPageIndex === lastPageIndex + 1) {
         cachedNotesPrev = [...cachedNotesCurrent];
         cachedNotesPrev.forEach(n => n.shrinkScale = 1.0);
-        // 传递上一页的总时长，保证消失动画速率正确
+        // 重要：传递上一页的总时长，保证消失动画速率正确
         cachedNotesPrev.prevBarDuration = activePageWindow.duration;
         transitionStartTime = audioTime;
       } else {
@@ -119,13 +129,14 @@ export const createSketch = (containerRef) => (p) => {
       lastPageIndex = currentPageIndex;
     }
 
-    // B. 加载新数据
+    // B. 加载新数据 (Cache Update)
     const isVisibilityChanged = visibleTrackIndices !== lastVisibleTracksRef;
     const isPercussionToggled = percussionSettings?.enabled !== lastPercussionEnabledRef;
     const isSettingsChanged = measuresPerPage !== lastMeasuresPerPage;
     const isColorChanged = trackColors !== lastTrackColors || useDefaultTrackColors !== lastUseDefaultTrackColors;
 
     if (currentPageIndex !== cachedPageIndex || isVisibilityChanged || isPercussionToggled || isSettingsChanged || isColorChanged) {
+      // cacheNotesForBar 现在会获取整个时间窗口(activePageWindow)内的所有音符
       cachedNotesCurrent = cacheNotesForBar(
         p,
         midiData,

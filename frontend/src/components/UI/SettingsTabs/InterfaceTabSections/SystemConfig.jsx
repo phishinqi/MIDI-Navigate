@@ -2,10 +2,10 @@
 import React, { useRef } from 'react';
 import useStore from '@/store/useStore';
 import { Download, Upload } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const SystemConfig = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const fileInputRef = useRef(null);
 
     const handleExportConfig = () => {
@@ -58,7 +58,7 @@ const SystemConfig = () => {
 
     return (
         <div className="space-y-4 pt-4 border-t border-white/5">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('system_config.title', { defaultValue: 'System' })}
             </h3>
 

@@ -5,7 +5,7 @@ import * as Tone from 'tone';
 import { UploadCloud } from 'lucide-react';
 import useStore from '@/store/useStore';
 import { api } from '@/lib/api';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入 useTranslation
 
 const FileUpload = ({ inputId, hidden }) => {
   const setMidiData = useStore((state) => state.setMidiData);
@@ -59,6 +59,7 @@ const FileUpload = ({ inputId, hidden }) => {
       <div className="flex flex-col items-center space-y-4 text-midi-accent/70 group-hover:text-midi-accent transition-colors">
         <div className="p-4 rounded-full bg-midi-gray group-hover:bg-midi-gray/80"><UploadCloud className="w-8 h-8" /></div>
         <div className="text-center">
+            {/* 3. 使用 t 函数替换静态文本 */}
             <h3 className="text-lg font-medium">
                 {t('controls.upload_prompt', { defaultValue: 'Drag MIDI here or click to upload' })}
             </h3>

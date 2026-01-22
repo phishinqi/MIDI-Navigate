@@ -1,4 +1,3 @@
-// frontend\src\lib\utils.js
 import { clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -7,6 +6,7 @@ export function cn(...inputs) {
 }
 
 /**
+ * 智能修复 MIDI 文本编码
  * 修复逻辑：
  * 1. 将乱码字符串回退为原始字节 (假设是 Latin1 误读)
  * 2. 探测顺序调整为：UTF-8 -> Shift-JIS -> GBK
@@ -36,7 +36,7 @@ export function fixEncoding(str) {
       // 不是 UTF-8，继续尝试
     }
 
-    // 3. 尝试 Shift-JIS (调高优先级)
+    // 3. [FIX] 尝试 Shift-JIS (调高优先级)
     // 解决 "僄儗..." (Electric Guitar) 等日文乱码
     try {
       const decoder = new TextDecoder('shift-jis', { fatal: true });
@@ -73,9 +73,11 @@ export function getTrackHue(index) {
  * @returns {string} hex格式颜色
  */
 export function getTrackColor(index, trackColors = {}, useDefault = true) {
+  // 如果不使用默认颜色且存在自定义颜色,则返回自定义颜色
   if (!useDefault && trackColors[index]) {
     return trackColors[index];
   }
+  // 否则使用默认的黄金角算法生成颜色
   const hue = getTrackHue(index);
   return hslToHex(hue, 70, 60);
 }
@@ -108,11 +110,13 @@ export function hslToHex(h, s, l) {
 }
 
 export function getTrackColorCSS(index, opacity = 1, trackColors = {}, useDefault = true) {
+  // 如果不使用默认颜色且存在自定义颜色
   if (!useDefault && trackColors[index]) {
     const hex = trackColors[index];
     const { r, g, b } = hexToRgb(hex);
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   }
+  // 使用默认颜色
   const hue = getTrackHue(index);
   return `hsla(${hue}, 70%, 60%, ${opacity})`;
 }

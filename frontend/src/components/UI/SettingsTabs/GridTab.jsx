@@ -3,10 +3,10 @@ import useStore from '@/store/useStore';
 import { Grid, Box, Monitor, Sparkles, Shapes, Activity } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
 import * as Switch from '@radix-ui/react-switch';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const GridTab = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const percussionSettings = useStore(state => state.percussionSettings);
     const setPercussionSettings = useStore(state => state.setPercussionSettings);
     const renderEngine = useStore(state => state.renderEngine);
@@ -18,10 +18,10 @@ const GridTab = () => {
             <div className="space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                    <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono">
+                    <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums">
                         {t('grid.title', { defaultValue: 'Percussion Grid' })}
                     </h3>
-                    <div className="flex items-center gap-2 text-[10px] font-mono opacity-50">
+                    <div className="flex items-center gap-2 text-[10px] font-sans tabular-nums opacity-50">
                         {renderEngine === 'three' ? <Box size={12} /> : <Monitor size={12} />}
                         <span>
                             {renderEngine === 'three'
@@ -45,14 +45,14 @@ const GridTab = () => {
                     <div className="space-y-2">
                         <div className="flex justify-between text-[10px] font-bold text-white/70">
                             <span>{t('grid.rows', { defaultValue: 'Rows' })}</span>
-                            <span className="font-mono text-midi-accent">{percussionSettings.rows}</span>
+                            <span className="font-sans tabular-nums text-midi-accent">{percussionSettings.rows}</span>
                         </div>
                         <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[percussionSettings.rows]} min={1} max={16} step={1} onValueChange={(v) => setPercussionSettings({ rows: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                     </div>
                     <div className="space-y-2">
                         <div className="flex justify-between text-[10px] font-bold text-white/70">
                             <span>{t('grid.cols', { defaultValue: 'Columns' })}</span>
-                            <span className="font-mono text-midi-accent">{percussionSettings.cols}</span>
+                            <span className="font-sans tabular-nums text-midi-accent">{percussionSettings.cols}</span>
                         </div>
                         <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[percussionSettings.cols]} min={1} max={32} step={1} onValueChange={(v) => setPercussionSettings({ cols: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                     </div>
@@ -67,14 +67,14 @@ const GridTab = () => {
                             <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-bold text-white/70">
                                     <span>{t('grid.cell_size_world', { defaultValue: 'Cell Size (World Units)' })}</span>
-                                    <span className="font-mono">{percussionSettings.cellSize}</span>
+                                    <span className="font-sans tabular-nums">{percussionSettings.cellSize}</span>
                                 </div>
                                 <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[percussionSettings.cellSize]} min={0.5} max={3.0} step={0.1} onValueChange={(v) => setPercussionSettings({ cellSize: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                             </div>
                             <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-bold text-white/70">
                                     <span>{t('grid.position_y', { defaultValue: 'Vertical Y' })}</span>
-                                    <span className="font-mono">{percussionSettings.positionY}</span>
+                                    <span className="font-sans tabular-nums">{percussionSettings.positionY}</span>
                                 </div>
                                 <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[percussionSettings.positionY]} min={-15} max={10} step={0.5} onValueChange={(v) => setPercussionSettings({ positionY: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                             </div>
@@ -99,8 +99,8 @@ const GridTab = () => {
                                     <button
                                         onClick={() => setPercussionSettings({ p5Style: 'geometry' })}
                                         className={`flex flex-col items-center justify-center p-2 rounded border transition-all ${(percussionSettings.p5Style === 'geometry' || !percussionSettings.p5Style)
-                                                ? 'bg-midi-accent text-black border-midi-accent'
-                                                : 'bg-white/5 text-white/50 border-transparent hover:bg-white/10'
+                                            ? 'bg-midi-accent text-black border-midi-accent'
+                                            : 'bg-white/5 text-white/50 border-transparent hover:bg-white/10'
                                             }`}
                                     >
                                         <Shapes size={16} className="mb-1" />
@@ -111,8 +111,8 @@ const GridTab = () => {
                                     <button
                                         onClick={() => setPercussionSettings({ p5Style: 'energy' })}
                                         className={`flex flex-col items-center justify-center p-2 rounded border transition-all ${percussionSettings.p5Style === 'energy'
-                                                ? 'bg-midi-accent text-black border-midi-accent'
-                                                : 'bg-white/5 text-white/50 border-transparent hover:bg-white/10'
+                                            ? 'bg-midi-accent text-black border-midi-accent'
+                                            : 'bg-white/5 text-white/50 border-transparent hover:bg-white/10'
                                             }`}
                                     >
                                         <Sparkles size={16} className="mb-1" />
@@ -123,8 +123,8 @@ const GridTab = () => {
                                     <button
                                         onClick={() => setPercussionSettings({ p5Style: 'monochrome' })}
                                         className={`flex flex-col items-center justify-center p-2 rounded border transition-all ${percussionSettings.p5Style === 'monochrome'
-                                                ? 'bg-midi-accent text-black border-midi-accent'
-                                                : 'bg-white/5 text-white/50 border-transparent hover:bg-white/10'
+                                            ? 'bg-midi-accent text-black border-midi-accent'
+                                            : 'bg-white/5 text-white/50 border-transparent hover:bg-white/10'
                                             }`}
                                     >
                                         <Activity size={16} className="mb-1" />
@@ -136,14 +136,14 @@ const GridTab = () => {
                             <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-bold text-white/70">
                                     <span>{t('grid.cell_size_px', { defaultValue: 'Cell Size (px)' })}</span>
-                                    <span className="font-mono">{percussionSettings.p5CellSize}px</span>
+                                    <span className="font-sans tabular-nums">{percussionSettings.p5CellSize}px</span>
                                 </div>
                                 <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[percussionSettings.p5CellSize || 40]} min={20} max={100} step={5} onValueChange={(v) => setPercussionSettings({ p5CellSize: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                             </div>
                             <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-bold text-white/70">
                                     <span>{t('grid.spacing_px', { defaultValue: 'Spacing (px)' })}</span>
-                                    <span className="font-mono">{percussionSettings.p5Spacing}px</span>
+                                    <span className="font-sans tabular-nums">{percussionSettings.p5Spacing}px</span>
                                 </div>
                                 <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[percussionSettings.p5Spacing || 10]} min={0} max={50} step={2} onValueChange={(v) => setPercussionSettings({ p5Spacing: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                             </div>

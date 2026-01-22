@@ -50,10 +50,12 @@ async def upload_midi(
         # Basic Mido Parse for Stats
         memory_file = io.BytesIO(content)
 
+        # [FIX] 添加 clip=True 参数
         # 这会自动修正超出 0-127 范围的异常 MIDI 数据字节，防止抛出 OSError
         mid = mido.MidiFile(file=memory_file, clip=True)
 
         # Deep Analysis (Legacy Global Analysis)
+        # 注意：如果 analyze_midi_theory 内部也使用了 mido，确保那边也可能有类似的保护
         theory_data = analyze_midi_theory(content, None, complexity, window_size)
 
         return FileAnalysisResponse(
@@ -68,6 +70,7 @@ async def upload_midi(
         print(f"MIDI Format Error: {e}")
         raise HTTPException(status_code=400, detail=f"MIDI file corrupted or non-standard: {str(e)}")
     except Exception as e:
+        # 捕获其他未知错误
         print(f"Upload Error: {e}")
         raise HTTPException(status_code=500, detail=f"Server error processing file: {str(e)}")
 

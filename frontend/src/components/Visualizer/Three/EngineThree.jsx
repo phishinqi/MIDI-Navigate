@@ -5,7 +5,7 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as Tone from 'tone';
 import useStore from '../../../store/useStore.js';
 import MidiScene from './MidiScene.jsx';
-import PercussionGrid3D from './PercussionGrid3D.jsx';
+import PercussionGrid3D from './PercussionGrid3D.jsx'; // [NEW]
 import { isLightColor } from '../../../lib/utils.js';
 
 const EngineThree = () => {
@@ -52,10 +52,12 @@ const EngineThree = () => {
       >
         <color attach="background" args={[backgroundColor]} />
 
+        {/* 滚动音符层 */}
         <MidiScene />
 
+        {/* [NEW] 静态打击乐网格层 */}
         {/* 放置在 Z=-10 左右，或者更深，取决于设计。MidiScene 的 BarLines 在 Z=-2 */}
-        {/* 在 PercussionGrid3D 内部控制位置，这里只需渲染 */}
+        {/* 我们在 PercussionGrid3D 内部控制位置，这里只需渲染 */}
         <PercussionGrid3D />
 
         {!isLight && (

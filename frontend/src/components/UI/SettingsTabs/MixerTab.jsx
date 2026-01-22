@@ -4,7 +4,7 @@ import { Eye, EyeOff, Check, Music, Volume2, VolumeX, Loader2 } from 'lucide-rea
 import { audioEngine } from '@/audio/AudioEngine';
 import { getTrackColorCSS, fixEncoding, getTrackColor } from '@/lib/utils';
 import { api } from '@/lib/api';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入 useTranslation
 
 const MixerTab = () => {
   const { t } = useTranslation(); // 2. 初始化 Hook
@@ -75,7 +75,7 @@ const MixerTab = () => {
 
   return (
     <>
-      <div className="grid grid-cols-[30px_30px_30px_30px_1fr_50px_30px] gap-2 px-4 py-2 bg-white/5 text-[10px] uppercase tracking-wider text-white/30 font-mono text-center">
+      <div className="grid grid-cols-[30px_30px_30px_30px_1fr_50px_30px] gap-2 px-4 py-2 bg-white/5 text-[10px] uppercase tracking-wider text-white/30 font-sans tabular-nums text-center">
         <div title={t('mixer.visibility', { defaultValue: 'Visibility' })}>Vis</div>
         <div title={t('mixer.analysis_source', { defaultValue: 'Analysis Source' })}>Src</div>
         <div title={t('mixer.mute', { defaultValue: 'Mute' })}>Mute</div>
@@ -111,11 +111,11 @@ const MixerTab = () => {
               </div>
 
               <div className="overflow-hidden pl-2 flex flex-col justify-center text-left">
-                <div className="text-xs font-mono truncate font-bold" style={{ color: trackColorCSS }} title={cleanName || `Track ${index + 1}`}>{cleanName || `Track ${index + 1}`}</div>
+                <div className="text-xs font-sans tabular-nums truncate font-bold" style={{ color: trackColorCSS }} title={cleanName || `Track ${index + 1}`}>{cleanName || `Track ${index + 1}`}</div>
                 <div className="text-[10px] opacity-40 truncate" title={cleanInst || "Instrument"}>{cleanInst || "Instrument"}</div>
               </div>
 
-              <div className="text-right pr-2 text-[10px] font-mono opacity-50">{track.notes.length}</div>
+              <div className="text-right pr-2 text-[10px] font-sans tabular-nums opacity-50">{track.notes.length}</div>
               <div className="flex justify-center"><button onClick={(e) => togglePreview(e, index)} className={`p-1.5 rounded-full transition-colors ${previewTrackIndex === index ? 'bg-midi-accent text-white animate-pulse' : 'opacity-20 hover:opacity-100 bg-white'}`}><Music size={14} /></button></div>
             </div>
           )
@@ -131,8 +131,8 @@ const MixerTab = () => {
             <button
               onClick={() => setUseDefaultTrackColors(true)}
               className={`flex-1 py-1.5 rounded text-xs font-bold border transition-all ${useDefaultTrackColors
-                  ? 'bg-midi-accent text-black border-midi-accent'
-                  : 'border-white/10 hover:border-white/30'
+                ? 'bg-midi-accent text-black border-midi-accent'
+                : 'border-white/10 hover:border-white/30'
                 }`}
             >
               {t('mixer.disabled', { defaultValue: 'OFF' })}
@@ -140,8 +140,8 @@ const MixerTab = () => {
             <button
               onClick={() => setUseDefaultTrackColors(false)}
               className={`flex-1 py-1.5 rounded text-xs font-bold border transition-all ${!useDefaultTrackColors
-                  ? 'bg-midi-accent text-black border-midi-accent'
-                  : 'border-white/10 hover:border-white/30'
+                ? 'bg-midi-accent text-black border-midi-accent'
+                : 'border-white/10 hover:border-white/30'
                 }`}
             >
               {t('mixer.enabled', { defaultValue: 'ON' })}
@@ -151,7 +151,7 @@ const MixerTab = () => {
         {!useDefaultTrackColors && (
           <button
             onClick={resetTrackColors}
-            className="w-full py-2 bg-white/5 text-white/70 font-mono text-xs rounded-md hover:bg-white/10 hover:text-white transition-all border border-white/10"
+            className="w-full py-2 bg-white/5 text-white/70 font-sans tabular-nums text-xs rounded-md hover:bg-white/10 hover:text-white transition-all border border-white/10"
           >
             {t('mixer.reset_all_colors', { defaultValue: 'Reset All Colors' })}
           </button>

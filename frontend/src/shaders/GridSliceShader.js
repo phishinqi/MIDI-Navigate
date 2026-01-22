@@ -4,7 +4,7 @@ import * as THREE from 'three';
 export const GridSliceMaterial = new THREE.ShaderMaterial({
   uniforms: {
     uGap: { value: 0.04 },      // 缝隙宽度
-    uIntensity: { value: 2.5 }, // 基础发光强度
+    uIntensity: { value: 2.5 }, // 基础发光强度 (配合 PostProcessing Bloom 使用)
     uGlowFalloff: { value: 0.4 }, // 内部光衰减程度 (0.0=纯平, 1.0=很强的中心光)
   },
   vertexShader: `
@@ -128,7 +128,7 @@ export const GridSliceMaterial = new THREE.ShaderMaterial({
     }
   `,
   transparent: true,
-  depthWrite: false,
+  depthWrite: false, // 关闭深度写入，防止透明物体相互遮挡产生的伪影
   side: THREE.DoubleSide,
   toneMapped: false // 关键：关闭色调映射，允许超亮颜色 (HDR) 触发 Bloom
 });

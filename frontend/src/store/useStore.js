@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+// 辅助函数：识别打击乐轨道
 const getDrumTrackIndices = (tracks) => {
   return tracks.map((t, i) => {
     const name = (t.name || "").toLowerCase();
@@ -42,7 +43,7 @@ const useStore = create(
       resetTrackColors: () => set({ trackColors: {}, useDefaultTrackColors: true }),
       setUseDefaultTrackColors: (value) => set({ useDefaultTrackColors: value }),
 
-      // --- P5 Settings ---
+      // --- P5 Settings [整合版] ---
       p5Settings: {
         showCursor: true,
         shrinkSpeed: 0.08,
@@ -52,6 +53,8 @@ const useStore = create(
         horizontalZoom: 1.0,
         noteHeight: 6,
         pageTurnMode: 'wipe',
+
+        // [NEW] 新增配置：每页显示多少个小节
         measuresPerPage: 1,
 
         growCurve: [0.1, 0.85, 0.75, 0.9],
@@ -95,7 +98,7 @@ const useStore = create(
       },
 
 
-      // --- Percussion Grid Settings---
+      // --- Percussion Grid Settings (整合版) ---
       percussionSettings: {
         enabled: true,
         rows: 4,
@@ -304,7 +307,7 @@ const useStore = create(
         trackColors: state.trackColors,
         useDefaultTrackColors: state.useDefaultTrackColors,
       }),
-      version: 10,
+      version: 10, // Version bumped for track colors
       migrate: (persistedState, version) => {
         if (version < 10) {
           return {};

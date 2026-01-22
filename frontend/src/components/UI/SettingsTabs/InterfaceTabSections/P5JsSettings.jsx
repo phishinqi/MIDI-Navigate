@@ -4,10 +4,10 @@ import { ScanLine, Wind, Star, BrainCircuit, Hourglass, Timer, Maximize, ArrowUp
 import * as Slider from '@radix-ui/react-slider';
 import * as Switch from '@radix-ui/react-switch';
 import BezierCurveEditor from '../../Common/BezierCurveEditor';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const P5JsSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const { p5Settings, setP5Settings, addP5CurvePreset, removeP5CurvePreset, applyP5CurvePreset } = useStore(state => ({
         p5Settings: state.p5Settings,
         setP5Settings: state.setP5Settings,
@@ -26,7 +26,7 @@ const P5JsSettings = () => {
 
     return (
         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('p5_settings.title', { defaultValue: 'Visualization (p5.js)' })}
             </h3>
 
@@ -58,7 +58,7 @@ const P5JsSettings = () => {
                         <span className="flex items-center gap-1 opacity-80">
                             <Ruler size={14} /> {t('p5_settings.measures_per_page', { defaultValue: 'Bar' })}
                         </span>
-                        <span className="font-mono text-midi-accent">
+                        <span className="font-sans tabular-nums text-midi-accent">
                             {currentP5Settings.measuresPerPage || 1}
                         </span>
                     </div>
@@ -90,11 +90,11 @@ const P5JsSettings = () => {
                         {currentP5Settings.pageTurnMode === 'meteor' && (
                             <>
                                 <div className="space-y-2">
-                                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Hourglass size={12} /> {t('p5_settings.meteor_hold_time', { defaultValue: 'Meteor Hold Time' })}</span> <span className="font-mono">{(currentP5Settings.meteorHoldTime || 0.5).toFixed(2)}s</span></div>
+                                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Hourglass size={12} /> {t('p5_settings.meteor_hold_time', { defaultValue: 'Meteor Hold Time' })}</span> <span className="font-sans tabular-nums">{(currentP5Settings.meteorHoldTime || 0.5).toFixed(2)}s</span></div>
                                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.meteorHoldTime || 0.5]} min={0.0} max={2.0} step={0.1} onValueChange={(v) => setP5Settings({ meteorHoldTime: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                                 </div>
                                 <div className="space-y-2">
-                                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Timer size={12} /> {t('p5_settings.meteor_fade_time', { defaultValue: 'Meteor Fade Time' })}</span> <span className="font-mono">{(currentP5Settings.meteorFadeTime || 1.5).toFixed(2)}s</span></div>
+                                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Timer size={12} /> {t('p5_settings.meteor_fade_time', { defaultValue: 'Meteor Fade Time' })}</span> <span className="font-sans tabular-nums">{(currentP5Settings.meteorFadeTime || 1.5).toFixed(2)}s</span></div>
                                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.meteorFadeTime || 1.5]} min={0.1} max={5.0} step={0.1} onValueChange={(v) => setP5Settings({ meteorFadeTime: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                                 </div>
                             </>
@@ -105,7 +105,7 @@ const P5JsSettings = () => {
                             <div className="space-y-2">
                                 <div className="flex justify-between text-[10px] font-bold">
                                     <span className="flex items-center gap-1 opacity-60"><ArrowRightToLine size={12} /> {t('p5_settings.shrink_start_point', { defaultValue: 'Shrink Start Point' })}</span>
-                                    <span className="font-mono">{Math.round((currentP5Settings.fadeStartRatio !== undefined ? currentP5Settings.fadeStartRatio : 0.45) * 100)}%</span>
+                                    <span className="font-sans tabular-nums">{Math.round((currentP5Settings.fadeStartRatio !== undefined ? currentP5Settings.fadeStartRatio : 0.45) * 100)}%</span>
                                 </div>
                                 <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.fadeStartRatio !== undefined ? currentP5Settings.fadeStartRatio : 0.45]} min={0.0} max={0.9} step={0.05} onValueChange={(v) => setP5Settings({ fadeStartRatio: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                             </div>
@@ -130,16 +130,16 @@ const P5JsSettings = () => {
 
                 {/* 布局设置 (通用) */}
                 <div className="pt-2 border-t border-white/5 mt-2 space-y-3">
-                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Maximize size={12} /> {t('p5_settings.vertical_scale', { defaultValue: 'Vertical Scale' })}</span> <span className="font-mono">{Math.round((currentP5Settings.noteAreaScale || 0.8) * 100)}%</span></div>
+                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><Maximize size={12} /> {t('p5_settings.vertical_scale', { defaultValue: 'Vertical Scale' })}</span> <span className="font-sans tabular-nums">{Math.round((currentP5Settings.noteAreaScale || 0.8) * 100)}%</span></div>
                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.noteAreaScale || 0.8]} min={0.3} max={1.0} step={0.05} onValueChange={(v) => setP5Settings({ noteAreaScale: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
 
-                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><ArrowUpDown size={12} /> {t('p5_settings.vertical_offset', { defaultValue: 'Vertical Offset' })}</span> <span className="font-mono">{currentP5Settings.noteAreaOffsetY || 0}px</span></div>
+                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><ArrowUpDown size={12} /> {t('p5_settings.vertical_offset', { defaultValue: 'Vertical Offset' })}</span> <span className="font-sans tabular-nums">{currentP5Settings.noteAreaOffsetY || 0}px</span></div>
                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.noteAreaOffsetY || 0]} min={-300} max={300} step={10} onValueChange={(v) => setP5Settings({ noteAreaOffsetY: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
 
-                    <div className="flex justify-between text-[10px] font-bold mt-4"><span className="flex items-center gap-1 opacity-60"><Scaling size={12} /> {t('p5_settings.horizontal_scale', { defaultValue: 'Horizontal Scale' })}</span> <span className="font-mono">{Math.round((currentP5Settings.horizontalZoom || 1.0) * 100)}%</span></div>
+                    <div className="flex justify-between text-[10px] font-bold mt-4"><span className="flex items-center gap-1 opacity-60"><Scaling size={12} /> {t('p5_settings.horizontal_scale', { defaultValue: 'Horizontal Scale' })}</span> <span className="font-sans tabular-nums">{Math.round((currentP5Settings.horizontalZoom || 1.0) * 100)}%</span></div>
                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.horizontalZoom || 1.0]} min={0.1} max={3.0} step={0.1} onValueChange={(v) => setP5Settings({ horizontalZoom: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
 
-                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><AlignJustify size={12} /> {t('p5_settings.note_thickness', { defaultValue: 'Note Thickness' })}</span> <span className="font-mono">{currentP5Settings.noteHeight || 6}px</span></div>
+                    <div className="flex justify-between text-[10px] font-bold"><span className="flex items-center gap-1 opacity-60"><AlignJustify size={12} /> {t('p5_settings.note_thickness', { defaultValue: 'Note Thickness' })}</span> <span className="font-sans tabular-nums">{currentP5Settings.noteHeight || 6}px</span></div>
                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.noteHeight || 6]} min={2} max={20} step={1} onValueChange={(v) => setP5Settings({ noteHeight: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                 </div>
 

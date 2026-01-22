@@ -3,10 +3,10 @@ import React from 'react';
 import useStore from '@/store/useStore';
 import { MoveHorizontal, MoveVertical, ArrowRightLeft, Video, ScanLine, GripVertical, MousePointer2 } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const ThreeJsSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 2. 初始化
     const viewSettings = useStore(state => state.viewSettings);
     const setViewSettings = useStore(state => state.setViewSettings);
 
@@ -16,6 +16,7 @@ const ThreeJsSettings = () => {
     const toggleClassOn = 'left-[18px]';
     const toggleClassOff = 'left-0.5';
 
+    // 定义选项列表，包含翻译 Key
     const toggleOptions = [
         { key: 'follow_playhead', def: 'Follow Playhead', stateKey: 'followCursor', icon: Video },
         { key: 'show_playhead', def: 'Show Playhead', stateKey: 'showPlayhead', icon: ScanLine },
@@ -25,7 +26,7 @@ const ThreeJsSettings = () => {
 
     return (
         <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
-            <h3 className="text-xs uppercase tracking-widest text-white/30 font-mono border-b border-white/10 pb-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('three_settings.title', { defaultValue: 'Viewport (Three.js)' })}
             </h3>
 
@@ -36,7 +37,7 @@ const ThreeJsSettings = () => {
                             <MoveHorizontal size={12} />
                             {t('three_settings.time_scale', { defaultValue: 'Time Scale' })}
                         </span>
-                        <span className="font-mono">{viewSettings.zoomX}x</span>
+                        <span className="font-sans tabular-nums">{viewSettings.zoomX}x</span>
                     </div>
                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[viewSettings.zoomX]} min={10} max={200} step={5} onValueChange={(v) => setViewSettings({ zoomX: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                 </div>
@@ -46,7 +47,7 @@ const ThreeJsSettings = () => {
                             <MoveVertical size={12} />
                             {t('three_settings.vertical_zoom', { defaultValue: 'Vertical Zoom' })}
                         </span>
-                        <span className="font-mono">{viewSettings.zoomY}x</span>
+                        <span className="font-sans tabular-nums">{viewSettings.zoomY}x</span>
                     </div>
                     <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[viewSettings.zoomY]} min={0.5} max={3.0} step={0.1} onValueChange={(v) => setViewSettings({ zoomY: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
                 </div>
@@ -58,7 +59,7 @@ const ThreeJsSettings = () => {
                         <ArrowRightLeft size={12} />
                         {t('three_settings.playhead_position', { defaultValue: 'Playhead Position' })}
                     </span>
-                    <span className="font-mono">{Math.round((viewSettings.playheadOffset || 0.2) * 100)}%</span>
+                    <span className="font-sans tabular-nums">{Math.round((viewSettings.playheadOffset || 0.2) * 100)}%</span>
                 </div>
                 <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[viewSettings.playheadOffset || 0.2]} min={0.1} max={0.9} step={0.05} onValueChange={(v) => setViewSettings({ playheadOffset: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
             </div>

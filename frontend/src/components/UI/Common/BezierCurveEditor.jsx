@@ -3,7 +3,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
 
+// ==========================================
 // 0. CONSTANTS & CONFIG
+// ==========================================
 const SIZE = 180;
 const PADDING = 40;
 const TOTAL_SIZE = SIZE + PADDING * 2;
@@ -16,7 +18,9 @@ const SUBDIVISION_MAX_ITERATIONS = 10;
 const kSplineTableSize = 11;
 const kSampleStepSize = 1.0 / (kSplineTableSize - 1.0);
 
+// ==========================================
 // 1. SELF-CONTAINED: Cubic Bezier Easing Function Generator
+// ==========================================
 const A = (aA1, aA2) => 1.0 - 3.0 * aA2 + 3.0 * aA1;
 const B = (aA1, aA2) => 3.0 * aA2 - 6.0 * aA1;
 const C = (aA1) => 3.0 * aA1;
@@ -70,7 +74,9 @@ const createBezier = (mX1, mY1, mX2, mY2) => {
   };
 };
 
+// ==========================================
 // 2. SELF-CONTAINED: Sample Animator Component
+// ==========================================
 const SampleAnimator = ({ curveValue }) => {
   const barRef = useRef(null);
   const animationFrameId = useRef(null);
@@ -107,7 +113,9 @@ const SampleAnimator = ({ curveValue }) => {
   );
 };
 
+// ==========================================
 // 3. VELOCITY VISUALIZATION CURVE
+// ==========================================
 const VelocityCurve = ({ value }) => {
   const segments = useMemo(() => {
     const SEGMENT_COUNT = 50;
@@ -161,7 +169,9 @@ const VelocityCurve = ({ value }) => {
   );
 };
 
+// ==========================================
 // 4. FINAL & COMPLETE: Main BezierCurveEditor Component
+// ==========================================
 const format = (n, precision = 2) => parseFloat(n).toFixed(precision);
 
 const BezierCurveEditor = ({
@@ -290,7 +300,7 @@ const BezierCurveEditor = ({
   };
 
   const currentSelectedPreset = presets.find(p => p.name === selectedPreset);
-  const inputClasses = "w-14 bg-black/50 text-center text-white font-mono rounded border border-white/10 focus:border-midi-accent focus:outline-none";
+  const inputClasses = "w-14 bg-black/50 text-center text-white font-sans tabular-nums rounded border border-white/10 focus:border-midi-accent focus:outline-none";
 
   return (
     <div className="flex flex-col gap-4">
@@ -320,7 +330,7 @@ const BezierCurveEditor = ({
         </svg>
 
         {/* NUMERIC CONTROLS SIDEBAR */}
-        <div className="text-[10px] font-mono text-white/50 space-y-2">
+        <div className="text-[10px] font-sans tabular-nums text-white/50 space-y-2">
           <div className="flex items-center gap-2">
             <span className="font-bold w-4">P1</span>
             <label htmlFor="p1x">x:</label>
