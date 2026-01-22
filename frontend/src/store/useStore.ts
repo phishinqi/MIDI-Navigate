@@ -39,6 +39,8 @@ interface StoreState {
   setAnalysisComplexity: (val: string) => void;
   chordDetectionMode: string;
   setChordDetectionMode: (mode: string) => void;
+  chordAnalysisEngine: 'legacy' | 'experimental';
+  setChordAnalysisEngine: (engine: 'legacy' | 'experimental') => void;
   incomingMidiEvent: any;
   setIncomingMidiEvent: (event: any) => void;
   rawFile: any;
@@ -247,6 +249,9 @@ const useStore = create<StoreState>()(
       chordDetectionMode: 'tonal',
       setChordDetectionMode: (mode) => set({ chordDetectionMode: mode }),
 
+      chordAnalysisEngine: 'legacy',
+      setChordAnalysisEngine: (engine) => set({ chordAnalysisEngine: engine }),
+
       // --- Data State ---
       incomingMidiEvent: null,
       setIncomingMidiEvent: (event) => set({ incomingMidiEvent: event }),
@@ -380,6 +385,7 @@ const useStore = create<StoreState>()(
         analysisSensitivity: state.analysisSensitivity,
         analysisComplexity: state.analysisComplexity,
         chordDetectionMode: state.chordDetectionMode,
+        chordAnalysisEngine: state.chordAnalysisEngine,
         selectedMidiOutput: state.selectedMidiOutput,
         showPlayerWidget: state.showPlayerWidget,
         showAnalysisWidget: state.showAnalysisWidget,

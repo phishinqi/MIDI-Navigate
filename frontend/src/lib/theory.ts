@@ -1,6 +1,7 @@
 // frontend/src/lib/theory.js
 import { Chord, Note } from "@tonaljs/tonal";
 import { detect } from './chordNameFinder';
+import { detectChord } from './chordAnalyzer';
 
 // --- Helpers ---
 
@@ -52,9 +53,26 @@ export const areNotesEqual = (prevNotes: any[], nextNotes: any[]) => {
 };
 
 // [NEW] Local detection using Advanced Chord System
-export const detectLocalChord = (midiNumbers: number[]) => {
+export const detectLocalChord = (midiNumbers: number[], engine: 'legacy' | 'experimental' = 'legacy') => {
   if (!midiNumbers || midiNumbers.length < 2) return { name: "---", confidence: 0, aliases: [] };
 
+  // Experimental: Use structure-based ChordAnalyzer
+  if (engine === 'experimental') {
+    const results = detectChord(midiNumbers); // Uses new analyzer
+    if (!results || results.length === 0) return { name: "---", confidence: 0, aliases: [] };
+
+    const best = results[0];
+    const aliases = results.slice(1).map(r => r.name); // Using 'name' from new result structure
+
+    return {
+      name: best.name,
+      confidence: best.confidence,
+      aliases: aliases,
+      quality: best.quality // New analyzer provides this
+    };
+  }
+
+  // Legacy: Use original chordNameFinder
   const results = detect(midiNumbers, { mode: 'loose', maxResults: 5 });
 
   if (!results || results.length === 0) return { name: "---", confidence: 0, aliases: [] };

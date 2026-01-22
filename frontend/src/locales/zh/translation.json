@@ -64,6 +64,11 @@
       "server": "后端 (Musicpy): 复杂和弦，包含转位与省略音",
       "local": "前端 (ChordNameFinder): 快速检测，支持高级和弦命名"
     },
+    "engine_mode": "和弦分析引擎",
+    "engine_desc": {
+      "experimental": "实验性 (chordAnalyzer.ts): 基于结构分析，支持复和弦与爵士和声",
+      "legacy": "旧版 (chordNameFinder.ts): 基于模式匹配，标准检测"
+    },
     "tip": "提示：在音轨标签页点击“应用更改”以生效。"
   },
   "audio_io": {

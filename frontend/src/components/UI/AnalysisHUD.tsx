@@ -149,7 +149,8 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
         currentTime,
         analysisTrackIndices,
         visibleTrackIndices,
-        chordDetectionMode
+        chordDetectionMode,
+        chordAnalysisEngine
     } = useStore();
 
     const [chordData, setChordData] = useState<{ name: string; confidence: number; source: string; aliases: string[]; quality?: string }>({ name: "---", confidence: 0, source: 'local', aliases: [] });
@@ -218,7 +219,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
                 return;
             }
 
-            const localResult = detectLocalChord(midiNumbers);
+            const localResult = detectLocalChord(midiNumbers, chordAnalysisEngine);
             setChordData({ ...localResult, source: 'local' });
 
             if (chordDetectionMode === 'tonal' || chordDetectionMode === 'server') {
@@ -254,7 +255,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
                 }, 100);
             }
         }
-    }, [currentTime, midiData, analysisTrackIndices, visibleTrackIndices, chordDetectionMode]);
+    }, [currentTime, midiData, analysisTrackIndices, visibleTrackIndices, chordDetectionMode, chordAnalysisEngine]);
 
     // --- 3. Maps & Stats ---
     const unifiedMaps = useMemo(() => {
@@ -318,7 +319,10 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
                             {chordData.source === 'server' ? (
                                 <span className="flex items-center gap-1 text-[9px] text-green-400 font-sans tabular-nums bg-green-400/10 px-1.5 py-0.5 rounded border border-green-400/20"><Server size={8} /> MUSICPY</span>
                             ) : (
-                                <span className={`flex items-center gap-1 text-[9px] font-sans tabular-nums px-1.5 py-0.5 rounded border border-white/10 ${textDim}`}><Cpu size={8} /> LOCAL</span>
+                                <span className={`flex items-center gap-1 text-[9px] font-sans tabular-nums px-1.5 py-0.5 rounded border border-white/10 ${textDim}`}>
+                                    <Cpu size={8} />
+                                    {chordAnalysisEngine === 'experimental' ? 'EXP / ANALYZER' : 'LEGACY / FINDER'}
+                                </span>
                             )}
 
                             <div className={`w-8 h-1.5 rounded-full ${barBg}`}>
