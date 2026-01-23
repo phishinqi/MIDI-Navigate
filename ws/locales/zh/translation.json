@@ -1,0 +1,38 @@
+{
+    "ws_visualizer": {
+        "title": "可视化器设置",
+        "sections": {
+            "analysis": "分析引擎",
+            "sequencer": "音序器",
+            "percussion": "打击乐",
+            "channels": "通道掩码"
+        },
+        "analysis": {
+            "active": "启用分析",
+            "display_mode": "显示模式",
+            "chord": "和弦",
+            "roman": "罗马级数",
+            "auto_detect": "自动检测音阶",
+            "memory": "记忆时长（秒）",
+            "sensitivity": "灵敏度",
+            "key_root": "主音",
+            "key_type": "调式类型"
+        },
+        "sequencer": {
+            "scroll_direction": "滚动方向",
+            "left": "向左",
+            "right": "向右",
+            "playhead_position": "播放头位置",
+            "pitch_scale": "音高缩放",
+            "note_height": "音符高度"
+        },
+        "percussion": {
+            "enabled": "启用打击乐",
+            "midi_channel": "MIDI通道"
+        },
+        "status": {
+            "connected": "已连接",
+            "disconnected": "未连接"
+        }
+    }
+}

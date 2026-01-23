@@ -1,0 +1,9 @@
+fastapi==0.125.0
+mido==1.3.3
+musicpy==7.11
+numpy==2.3.5
+pretty_midi==0.2.11
+pydantic==2.12.5
+pydantic_settings==2.12.0
+scipy==1.16.3
+uvicorn==0.38.0
