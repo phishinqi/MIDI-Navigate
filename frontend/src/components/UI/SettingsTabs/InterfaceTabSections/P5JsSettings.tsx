@@ -1,6 +1,6 @@
 import React from 'react';
 import useStore from '@/store/useStore';
-import { ScanLine, Wind, Star, BrainCircuit, Hourglass, Timer, Maximize, ArrowUpDown, Scaling, AlignJustify, ArrowRight, Grid3X3, ArrowRightToLine, Ruler } from 'lucide-react';
+import { ScanLine, Wind, Star, Sparkles, BrainCircuit, Hourglass, Timer, Maximize, ArrowUpDown, Scaling, AlignJustify, ArrowRight, Grid3X3, ArrowRightToLine, Ruler } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
 import * as Switch from '@radix-ui/react-switch';
 import BezierCurveEditor from '../../Common/BezierCurveEditor';
@@ -20,7 +20,7 @@ const P5JsSettings = () => {
         showCursor: true, showGrid: true, shrinkSpeed: 0.08, noteAreaScale: 0.8, noteAreaOffsetY: 0,
         horizontalZoom: 1.0, noteHeight: 6, pageTurnMode: 'wipe', growCurve: [0.1, 0.85, 0.75, 0.9],
         fadeCurve: [0.42, 0, 1, 1], curvePresets: [], meteorHoldTime: 0.5, meteorFadeTime: 1.5,
-        fadeStartRatio: 0.45,
+        fadeStartRatio: 0.45, kashiwadeInterval: 0.0, kashiwadeDuration: 1.0,
         measuresPerPage: 1
     };
 
@@ -48,6 +48,9 @@ const P5JsSettings = () => {
                         </button>
                         <button onClick={() => setP5Settings({ pageTurnMode: 'meteor' })} className={`flex-1 px-3 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${(currentP5Settings.pageTurnMode === 'meteor' || currentP5Settings.pageTurnMode === 'fade-stagger') ? 'bg-white text-black shadow' : 'text-white/40 hover:text-white'}`}>
                             <Star size={12} /> {t('p5_settings.modes.meteor', { defaultValue: 'Meteor' })}
+                        </button>
+                        <button onClick={() => setP5Settings({ pageTurnMode: 'kashiwade' })} className={`flex-1 px-3 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${currentP5Settings.pageTurnMode === 'kashiwade' ? 'bg-white text-black shadow' : 'text-white/40 hover:text-white'}`}>
+                            <Sparkles size={12} /> {t('p5_settings.modes.kashiwade', { defaultValue: 'Kashiwade' })}
                         </button>
                     </div>
                 </div>
@@ -83,7 +86,7 @@ const P5JsSettings = () => {
                 </div>
 
                 {/* 消失动画设置区域 */}
-                {(currentP5Settings.pageTurnMode === 'meteor' || currentP5Settings.pageTurnMode === 'fade') && (
+                {(currentP5Settings.pageTurnMode === 'meteor' || currentP5Settings.pageTurnMode === 'fade' || currentP5Settings.pageTurnMode === 'kashiwade') && (
                     <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200 border-t border-white/10 pt-4 mt-4">
 
                         {/* Meteor 独有设置 */}
@@ -111,13 +114,35 @@ const P5JsSettings = () => {
                             </div>
                         )}
 
+                        {/* Kashiwade 独有设置 */}
+                        {currentP5Settings.pageTurnMode === 'kashiwade' && (
+                            <>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] font-bold">
+                                        <span className="flex items-center gap-1 opacity-60"><Timer size={12} /> {t('p5_settings.kashiwade_interval', { defaultValue: 'Kashiwade Interval' })}</span>
+                                        <span className="font-sans tabular-nums">{(currentP5Settings.kashiwadeInterval || 0.0).toFixed(2)}s</span>
+                                    </div>
+                                    <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.kashiwadeInterval ?? 0.0]} min={0.0} max={5.0} step={0.1} onValueChange={(v) => setP5Settings({ kashiwadeInterval: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-[10px] font-bold">
+                                        <span className="flex items-center gap-1 opacity-60"><Hourglass size={12} /> {t('p5_settings.kashiwade_duration', { defaultValue: 'Kashiwade Duration' })}</span>
+                                        <span className="font-sans tabular-nums">{(currentP5Settings.kashiwadeDuration || 1.0).toFixed(2)}s</span>
+                                    </div>
+                                    <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.kashiwadeDuration || 1.0]} min={0.1} max={5.0} step={0.1} onValueChange={(v) => setP5Settings({ kashiwadeDuration: v[0] })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                                </div>
+                            </>
+                        )}
+
                         {/* 共享的曲线编辑器 */}
                         <div className="pt-2 space-y-2">
                             <div className="flex justify-between text-[10px] font-bold mb-2">
                                 <span className="flex items-center gap-1 opacity-80"><Star size={14} />
                                     {currentP5Settings.pageTurnMode === 'meteor'
                                         ? t('p5_settings.meteor_fade_curve', { defaultValue: 'Meteor Fade Curve' })
-                                        : t('p5_settings.shrink_curve', { defaultValue: 'Shrink Curve' })}
+                                        : currentP5Settings.pageTurnMode === 'kashiwade'
+                                            ? t('p5_settings.kashiwade_curve', { defaultValue: 'Kashiwade Curve' })
+                                            : t('p5_settings.shrink_curve', { defaultValue: 'Shrink Curve' })}
                                 </span>
                             </div>
                             <BezierCurveEditor

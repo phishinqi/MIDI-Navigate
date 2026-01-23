@@ -456,6 +456,66 @@ export const drawPreviousNotes = (p: p5, notes: any, audioTime: number, settings
     }
     return allNotesGone;
 
+  } else if (mode === 'kashiwade') {
+    // Kashiwade Mode: Wait for interval, then shrink all notes simultaneously
+    const waitTime = settings?.kashiwadeInterval ?? 0.0;
+    const fadeDuration = settings?.kashiwadeDuration || 1.0;
+
+    // Phase 1: Waiting (Notes are fully visible)
+    if (timeSinceTransition < waitTime) {
+      for (let n of notes) {
+        const noteStart = n.ratioX;
+        const noteEnd = n.ratioX + n.ratioW;
+
+        // Clamp
+        const visibleStart = Math.max(0, noteStart);
+        const visibleEnd = Math.min(1, noteEnd);
+
+        if (visibleStart < visibleEnd) {
+          const startX = leftMargin + (visibleStart * effectiveWidth);
+          const w = (visibleEnd - visibleStart) * effectiveWidth;
+          const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+          p.fill(n.color);
+          if (w > 0) p.rect(startX, y, w, noteH);
+        }
+      }
+      return false; // Not gone yet
+    }
+
+    // Phase 2: Disappearing
+    const animTime = timeSinceTransition - waitTime;
+    if (animTime >= fadeDuration) return true; // All gone
+
+    const linearP = animTime / fadeDuration;
+    // Use fadeCurve for the shrink easing
+    const fadeCurve = settings?.fadeCurve || [0.42, 0, 1, 1];
+    const fadeEaser = createBezier(fadeCurve[0], fadeCurve[1], fadeCurve[2], fadeCurve[3]);
+    const easedP = fadeEaser(linearP); // 0.0 -> 1.0
+
+    for (let n of notes) {
+      const originalW = n.ratioW;
+
+      // Shrink from LEFT to RIGHT (similar to Fade clipping)
+      const eatenW = originalW * easedP;
+
+      let visibleStart = n.ratioX + eatenW;
+      let visibleEnd = n.ratioX + originalW;
+
+      // Clamp
+      visibleStart = Math.max(0, Math.max(visibleStart, n.ratioX));
+      visibleEnd = Math.min(1, visibleEnd);
+
+      if (visibleStart < visibleEnd) {
+        allNotesGone = false;
+        const startX = leftMargin + (visibleStart * effectiveWidth);
+        const w = (visibleEnd - visibleStart) * effectiveWidth;
+        const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+        p.fill(n.color);
+        if (w > 0) p.rect(startX, y, w, noteH);
+      }
+    }
+    return allNotesGone;
+
   } else if (mode === 'fade') {
     const shrinkSetting = settings?.shrinkSpeed || 0.08;
     const speedFactor = shrinkSetting * 20.0;

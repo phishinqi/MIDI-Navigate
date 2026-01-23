@@ -54,8 +54,11 @@
     "reanalyzing": "重新分析中...",
     "ready": "就绪",
     "structure": "结构与转调",
-    "major": "Major",
-    "minor": "Minor"
+    "minor": "Minor",
+    "engine": {
+      "exp": "EXP / chordAnalyzer.ts",
+      "legacy": "LOCAL / chordNameFinder.ts"
+    }
   },
   "analysis_settings": {
     "title": "分析引擎",
@@ -129,14 +132,18 @@
     "modes": {
       "wipe": "Wipe",
       "fade": "Fade",
-      "meteor": "Meteor"
+      "meteor": "Meteor",
+      "kashiwade": "Kashiwade"
     },
     "measures_per_page": "每页小节数",
     "note_growth_curve": "生长曲线",
     "meteor_hold_time": "停留时间",
     "meteor_fade_time": "消逝时间",
+    "kashiwade_interval": "等待时长",
+    "kashiwade_duration": "动画时长",
     "shrink_start_point": "收缩起始点",
     "meteor_fade_curve": "消逝曲线",
+    "kashiwade_curve": "消失曲线",
     "shrink_curve": "收缩曲线",
     "vertical_scale": "垂直缩放",
     "vertical_offset": "垂直偏移",

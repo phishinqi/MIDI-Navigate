@@ -54,8 +54,11 @@
     "reanalyzing": "Re-analyzing...",
     "ready": "Ready",
     "structure": "Structure & Modulation",
-    "major": "Major",
-    "minor": "Minor"
+    "minor": "Minor",
+    "engine": {
+      "exp": "EXP / ANALYZER",
+      "legacy": "LEGACY / FINDER"
+    }
   },
   "analysis_settings": {
     "title": "Analysis Engine",
@@ -124,14 +127,18 @@
     "modes": {
       "wipe": "Wipe",
       "fade": "Fade",
-      "meteor": "Meteor"
+      "meteor": "Meteor",
+      "kashiwade": "Kashiwade"
     },
     "measures_per_page": "Measures/Page",
     "note_growth_curve": "Note Growth Curve",
     "meteor_hold_time": "Meteor Hold Time",
     "meteor_fade_time": "Meteor Fade Time",
+    "kashiwade_interval": "Kashiwade Interval",
+    "kashiwade_duration": "Kashiwade Duration",
     "shrink_start_point": "Shrink Start Point",
     "meteor_fade_curve": "Meteor Fade Curve",
+    "kashiwade_curve": "Kashiwade Curve",
     "shrink_curve": "Shrink Curve",
     "vertical_scale": "Vertical Scale",
     "vertical_offset": "Vertical Offset",

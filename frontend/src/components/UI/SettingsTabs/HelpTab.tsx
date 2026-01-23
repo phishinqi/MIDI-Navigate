@@ -41,7 +41,7 @@ const HelpTab = () => {
             <span className="font-sans tabular-nums font-bold select-all">2844188892@qq.com</span>
           </div>
           <div className="text-xs text-center pt-2 opacity-30 italic">
-            {t('app.title', { defaultValue: 'MIDI-Navigate' })} v1.0.0
+            {t('app.title', { defaultValue: 'MIDI-Navigate' })} v2.5
           </div>
         </div>
       </div>

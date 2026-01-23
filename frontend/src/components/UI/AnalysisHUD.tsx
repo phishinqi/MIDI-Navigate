@@ -161,6 +161,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
     // Refs for change detection
     const prevNotesRef = useRef<any[]>([]);
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const visualHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const fps = useFps();
 
@@ -215,18 +216,32 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
             const midiNumbers = currentNotes.map(n => n.midi);
 
             if (currentNotes.length < 2) {
-                setChordData({ name: "---", confidence: 0, source: 'none', aliases: [] });
+                // [MODIFIED] Debounce clearing to prevent flickering on short notes/releases
+                if (visualHoldTimerRef.current) clearTimeout(visualHoldTimerRef.current);
+                visualHoldTimerRef.current = setTimeout(() => {
+                    setChordData({ name: "---", confidence: 0, source: 'none', aliases: [] });
+                }, 350); // 350ms Hold Time
                 return;
             }
 
-            const localResult = detectLocalChord(midiNumbers, chordAnalysisEngine);
-            setChordData({ ...localResult, source: 'local' });
+            // If we have valid notes, CANCEL the clear timer immediately
+            if (visualHoldTimerRef.current) clearTimeout(visualHoldTimerRef.current);
 
-            if (chordDetectionMode === 'tonal' || chordDetectionMode === 'server') {
-                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            // [MODIFIED] Add small input debounce (40ms) to smooth arpeggios/simultaneous presses
+            // This replaces the instant update, effectively "waiting" for the full chord
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = setTimeout(async () => {
+                const localResult = detectLocalChord(midiNumbers, chordAnalysisEngine);
 
-                setIsServerPending(true);
-                debounceTimerRef.current = setTimeout(async () => {
+                // If using server, we still show local result first for responsiveness, 
+                // OR we wait? Users prefer instant feedback usually.
+                // Let's set local result immediately after this short debounce.
+                if (chordDetectionMode !== 'server' || !isServerPending) {
+                    setChordData({ ...localResult, source: 'local' });
+                }
+
+                if (chordDetectionMode === 'tonal' || chordDetectionMode === 'server') {
+                    setIsServerPending(true);
                     try {
                         const apiPayload = currentNotes
                             .filter(n => typeof n.midi === 'number')
@@ -237,6 +252,9 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
 
                         if (apiPayload.length > 0) {
                             const serverRes = await api.analyzeChord(apiPayload);
+                            // Verify active notes haven't changed since request started (simple check)
+                            // We can use the ref Check, but we are inside the closure of the timeout?
+                            // Better to check current ref value.
                             if (areNotesEqual(prevNotesRef.current, currentNotes)) {
                                 setChordData({
                                     name: serverRes.chord.name,
@@ -252,8 +270,8 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
                     } finally {
                         setIsServerPending(false);
                     }
-                }, 100);
-            }
+                }
+            }, 50); // 50ms Input Lag for stability
         }
     }, [currentTime, midiData, analysisTrackIndices, visibleTrackIndices, chordDetectionMode, chordAnalysisEngine]);
 
@@ -321,7 +339,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
                             ) : (
                                 <span className={`flex items-center gap-1 text-[9px] font-sans tabular-nums px-1.5 py-0.5 rounded border border-white/10 ${textDim}`}>
                                     <Cpu size={8} />
-                                    {chordAnalysisEngine === 'experimental' ? 'EXP / ANALYZER' : 'LEGACY / FINDER'}
+                                    {chordAnalysisEngine === 'experimental' ? t('analysis.engine.exp', { defaultValue: 'EXP / ANALYZER' }) : t('analysis.engine.legacy', { defaultValue: 'LEGACY / FINDER' })}
                                 </span>
                             )}
 

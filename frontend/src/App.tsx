@@ -52,6 +52,34 @@ function App() {
         case 'KeyZ': e.preventDefault(); toggleZenMode(); break;
         // 修改：移除了 if (midiData) 检查，允许随时打开设置
         case 'KeyS': e.preventDefault(); setShowSettings((prev) => !prev); break;
+        case 'ArrowLeft':
+          if (midiData) {
+            e.preventDefault();
+            const { isPlaying, setIsPlaying, currentTime, duration, setCurrentTime } = useStore.getState();
+            // Fine-tune step: 0.02s (approx 1 frame at 50fps), Large step (Shift): 0.5s
+            const step = e.shiftKey ? 0.5 : 0.02;
+            const newTime = Math.max(0, currentTime - step);
+
+            // Update Store
+            setCurrentTime(newTime);
+            // Update Audio Engine
+            audioEngine.seek(newTime);
+
+            // If dragging/seeking, usually we pause or ensure transport sync
+            // But Tone.Transport.seconds handles sync.
+          }
+          break;
+        case 'ArrowRight':
+          if (midiData) {
+            e.preventDefault();
+            const { currentTime, duration, setCurrentTime } = useStore.getState();
+            const step = e.shiftKey ? 0.5 : 0.02;
+            const newTime = Math.min(duration, currentTime + step);
+
+            setCurrentTime(newTime);
+            audioEngine.seek(newTime);
+          }
+          break;
         default: break;
       }
     };
