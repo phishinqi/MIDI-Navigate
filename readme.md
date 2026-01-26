@@ -99,4 +99,4 @@ npm run build
 
 ## 📄 许可证
 
-[MIT License](LICENSE)
+[GNU GENERAL PUBLIC LICENSE V3.0](LICENSE)
