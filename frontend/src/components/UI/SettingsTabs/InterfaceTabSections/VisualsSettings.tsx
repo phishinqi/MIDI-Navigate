@@ -1,4 +1,3 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/VisualsSettings.jsx
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Zap, Sun, Moon } from 'lucide-react';

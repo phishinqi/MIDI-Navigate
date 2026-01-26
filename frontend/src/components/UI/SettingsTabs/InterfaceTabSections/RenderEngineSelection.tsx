@@ -1,4 +1,3 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/RenderEngineSelection.jsx
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Box, Monitor } from 'lucide-react';

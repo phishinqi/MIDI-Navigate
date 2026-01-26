@@ -23,6 +23,7 @@
     "no_midi_mixer": "未加载 MIDI，音轨控制已禁用。",
     "sections": {
       "mixer": "音轨",
+      "audio": "音频",
       "interface": "界面",
       "grid": "打击乐网格",
       "debug": "调试",
@@ -82,7 +83,12 @@
     "status": {
       "active": "活跃",
       "no_devices": "无设备"
-    }
+    },
+    "sound_source": "音源 (SF2)",
+    "upload_help": "上传 .sf2 文件以替换默认音色。大文件可能需要加载时间。",
+    "load_file": "加载 .sf2 文件",
+    "change_file": "更换 SF2 文件 (已加载)",
+    "reset": "重置"
   },
   "canvas_appearance": {
     "title": "画布外观",
@@ -161,7 +167,38 @@
     "import": "导入配置",
     "import_success": "配置导入成功！",
     "import_invalid": "无效的配置文件。",
-    "import_failed": "无法解析配置文件。"
+    "import_failed": "无法解析配置文件。",
+    "export_video": "导出视频 / 序列帧"
+  },
+  "export_modal": {
+    "title": "导出",
+    "format": "格式",
+    "video": "MP4 视频",
+    "sequence": "PNG 序列帧",
+    "resolution": "分辨率",
+    "fps": "帧率 (FPS)",
+    "bitrate": "码率 (Mbps)",
+    "start": "开始导出",
+    "processing": "处理中",
+    "initializing": "初始化...",
+    "check_console": "导出失败，请检查控制台",
+    "complete": "导出完成！",
+    "rendering_audio": "正在渲染音频...",
+    "rendering_video": "正在渲染画面 {{current}}/{{total}}",
+    "saving_frame": "保存帧 {{current}}/{{total}}",
+    "zipping": "正在打包...",
+    "finalizing": "正在封装...",
+    "cancel": "取消",
+    "include_audio": "包含音频",
+    "external_midi_detected": "检测到外部MIDI设备",
+    "external_midi_warning": "外部MIDI音源（如 VirtualMIDISynth）无法使用离线渲染。这是 Web Audio API 的技术限制。",
+    "audio_mode": "音频模式",
+    "offline_render": "离线渲染（推荐）",
+    "offline_render_desc": "快速渲染，使用浏览器音源",
+    "realtime_render": "实时录制",
+    "realtime_render_desc": "实时播放并录制，支持外部MIDI",
+    "no_audio": "无音频",
+    "no_audio_desc": "仅导出视频，稍后添加音频"
   },
   "three_settings": {
     "title": "可视化设置 (Three.js)",

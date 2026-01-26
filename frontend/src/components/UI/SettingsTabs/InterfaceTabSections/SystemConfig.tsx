@@ -1,7 +1,6 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/SystemConfig.tsx
 import React, { useRef } from 'react';
 import useStore from '@/store/useStore';
-import { Download, Upload } from 'lucide-react';
+import { Download, Upload, Film } from 'lucide-react';
 import { useTranslation } from 'react-i18next'; // 1. 引入
 
 const SystemConfig = () => {
@@ -59,6 +58,17 @@ const SystemConfig = () => {
 
     return (
         <div className="space-y-4 pt-4 border-t border-white/5">
+            {/* New Export Section */}
+            <div className="bg-midi-accent/5 border border-midi-accent/20 rounded-lg p-3">
+                <button
+                    onClick={useStore.getState().toggleExportMenu}
+                    className="w-full py-2 bg-midi-accent/10 hover:bg-midi-accent/20 border border-midi-accent/30 rounded text-xs font-bold flex items-center justify-center gap-2 text-midi-accent transition-all group"
+                >
+                    <Film size={18} />
+                    <span>{t('system_config.export_video', { defaultValue: 'Export Video / Sequence' })}</span>
+                </button>
+            </div>
+
             <h3 className="text-xs uppercase tracking-widest text-white/30 font-sans tabular-nums border-b border-white/10 pb-2">
                 {t('system_config.title', { defaultValue: 'System' })}
             </h3>

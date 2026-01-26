@@ -12,6 +12,7 @@ const EngineP5 = () => {
   // Store Actions
   const setCurrentTime = useStore((state) => state.setCurrentTime);
   const setIsPlaying = useStore((state) => state.setIsPlaying);
+  const setP5Instance = useStore((state) => state.setP5Instance);
 
   // ----------------------------------------------------------------
   // 1. Time Sync Loop (The Heartbeat)
@@ -51,12 +52,14 @@ const EngineP5 = () => {
     if (containerRef.current) {
       const sketch = createSketch(containerRef);
       p5Instance.current = new p5(sketch, containerRef.current);
+      setP5Instance(p5Instance.current);
     }
 
     return () => {
       if (p5Instance.current) {
         p5Instance.current.remove();
         p5Instance.current = null;
+        setP5Instance(null);
       }
     };
   }, []);

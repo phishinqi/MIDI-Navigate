@@ -9,6 +9,7 @@ import { Eye, EyeOff, Settings } from 'lucide-react';
 import { isLightColor } from '@/lib/utils';
 import { audioEngine } from '@/audio/AudioEngine';
 import AudioEngineManager from '@/audio/AudioEngineManager';
+import ExportModal from '@/components/UI/ExportModal';
 
 function App() {
   const midiData = useStore((state) => state.midiData);
@@ -50,19 +51,15 @@ function App() {
         case 'KeyO': e.preventDefault(); handleGlobalFileUpload(); break;
         case 'KeyM': e.preventDefault(); toggleMute(); break;
         case 'KeyZ': e.preventDefault(); toggleZenMode(); break;
-        // 修改：移除了 if (midiData) 检查，允许随时打开设置
         case 'KeyS': e.preventDefault(); setShowSettings((prev) => !prev); break;
         case 'ArrowLeft':
           if (midiData) {
             e.preventDefault();
             const { isPlaying, setIsPlaying, currentTime, duration, setCurrentTime } = useStore.getState();
-            // Fine-tune step: 0.02s (approx 1 frame at 50fps), Large step (Shift): 0.5s
             const step = e.shiftKey ? 0.5 : 0.02;
             const newTime = Math.max(0, currentTime - step);
 
-            // Update Store
             setCurrentTime(newTime);
-            // Update Audio Engine
             audioEngine.seek(newTime);
 
             // If dragging/seeking, usually we pause or ensure transport sync
@@ -105,6 +102,7 @@ function App() {
       style={{ backgroundColor: backgroundColor }}
     >
       <AudioEngineManager />
+      <ExportModal />
       <div className="absolute inset-0 z-0">
         {midiData ? (
           <Visualizer />

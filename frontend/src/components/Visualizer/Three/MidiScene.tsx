@@ -1,4 +1,3 @@
-// frontend/src/components/Visualizer/Three/MidiScene.jsx
 import React, { useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -38,14 +37,16 @@ function useGlowTexture() {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    if (ctx) { // Check for ctx logic
+    if (ctx) {
       const gradient = ctx.createRadialGradient(size / 2, size / 2, size * 0.1, size / 2, size / 2, size * 0.5);
       gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
       gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, size, size);
     }
-    return new THREE.CanvasTexture(canvas);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
   }, []);
 }
 
@@ -55,8 +56,6 @@ const MidiScene = () => {
   const barLinesRef = useRef<THREE.InstancedMesh>(null);
   const groupRef = useRef<THREE.Group>(null);
   const playheadRef = useRef<THREE.Mesh>(null);
-
-  // [核心修复] 增加一个 Ref 标记是否已初始化矩阵
   const isInitialized = useRef(false);
 
   const midiData = useStore(state => state.midiData);
@@ -229,8 +228,6 @@ const MidiScene = () => {
   useFrame(() => {
     if (!meshRef.current || !glowRef.current || !groupRef.current) return;
 
-    // [核心修复] 如果发现还没初始化（比如刚切换回来），强制跑一次全量更新
-    // 这解决了 React 调度导致的 useLayoutEffect 偶尔失效或 WebGL 上下文重建的问题
     if (!isInitialized.current && count > 0) {
       updateAllMatrices();
       isInitialized.current = true;

@@ -1,4 +1,3 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/CanvasAppearance.jsx
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Palette } from 'lucide-react';

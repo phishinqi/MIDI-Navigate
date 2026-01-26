@@ -4,7 +4,6 @@ import { gsap } from "gsap";
 import { PixiPlugin } from "gsap/PixiPlugin";
 import type { PercussionHit } from './types';
 
-// 注册 GSAP 插件
 gsap.registerPlugin(PixiPlugin);
 PixiPlugin.registerPIXI(PIXI);
 
@@ -77,7 +76,6 @@ export class PercussionGrid {
         this.steps = [];
         this.stepCounter = 0;
 
-        // ✅ 阈值：50ms 内的音符算作同一拍
         this.groupingThreshold = 0.05;
         this.lastHitTime = 0;
     }
@@ -90,7 +88,6 @@ export class PercussionGrid {
         const timeDiff = now - this.lastHitTime;
         let targetStep: PercStep;
 
-        // ✅ 核心逻辑：合并同拍
         // 如果两次击打时间极短，视为同一个时间步（例如底鼓和踩镲同时响）
         if (timeDiff < this.groupingThreshold && this.steps.length > 0) {
             targetStep = this.steps[this.steps.length - 1];
@@ -104,27 +101,25 @@ export class PercussionGrid {
                 types: [type],
                 velocity: velocity / 127,
                 absoluteIndex: this.stepCounter++,
-                energy: 0, // 初始能量，将由 GSAP 设置为 1 并缓动
-                isDead: false // 标记是否动画结束
+                energy: 0,
+                isDead: false
             };
             this.steps.push(targetStep);
             this.lastHitTime = now;
         }
 
-        // ✅ GSAP 优化：使用 Tween 管理动画状态
         // 1. 先清理该对象上可能存在的旧动画（防止快速连击时的冲突）
         gsap.killTweensOf(targetStep);
 
-        // 2. 重置能量为 1.0 (最大亮度/大小)
+        // 2. 重置能量为 1.0
         targetStep.energy = 1.0;
 
         // 3. 开始衰减动画
         gsap.to(targetStep, {
             energy: 0,
-            duration: 0.6, // 动画持续 0.6 秒
-            ease: "power2.out", // 缓动曲线：开始快，结束慢，比线性更自然
+            duration: 0.6,
+            ease: "power2.out",
             onComplete: () => {
-                // 动画结束后标记为死亡，等待 update 清理
                 targetStep.isDead = true;
             }
         });
@@ -132,7 +127,6 @@ export class PercussionGrid {
         // 限制最大步数，防止极端情况下的内存溢出
         if (this.steps.length > 64) {
             const removed = this.steps.shift();
-            // 移除时务必清理动画，防止 GSAP 继续引用已移除的对象
             if (removed) {
                 gsap.killTweensOf(removed);
             }
@@ -145,8 +139,6 @@ export class PercussionGrid {
 
         if (!settings.get('percEnabled')) return;
 
-        // ✅ 自动清理：过滤掉已经播放完动画的 steps
-        // 这样就不需要手动计算 age > 1.0 了
         this.steps = this.steps.filter(s => !s.isDead);
 
         const rows = settings.get('percRows');
@@ -155,7 +147,6 @@ export class PercussionGrid {
         const baseSize = settings.get('percBaseSize');
         const totalSlots = rows * cols;
 
-        // 自适应布局计算
         const screenW = this.app.screen.width;
         const screenH = this.app.screen.height;
         const availableW = screenW - 80;
@@ -171,7 +162,6 @@ export class PercussionGrid {
         const startX = (screenW - gridWidth) / 2;
         const startY = screenH - gridHeight - 40;
 
-        // 绘制背景网格
         for (let i = 0; i < totalSlots; i++) {
             const col = i % cols;
             const row = Math.floor(i / cols);
@@ -183,11 +173,9 @@ export class PercussionGrid {
             g.fill({ color: 0x000000, alpha: 0.2 });
         }
 
-        // 绘制 Steps (倒序绘制，新的在上面)
         for (let i = this.steps.length - 1; i >= 0; i--) {
             const step = this.steps[i];
 
-            // 如果能量极低，跳过绘制
             if (step.energy <= 0.01) continue;
 
             const visualIndex = step.absoluteIndex % totalSlots;
@@ -196,38 +184,30 @@ export class PercussionGrid {
             const x = startX + col * (cellSize + spacing);
             const y = startY + row * (cellSize + spacing);
 
-            // 直接传入由 GSAP 控制的 step.energy
             this.drawStepGlyph(g, x, y, cellSize, step.types, step.energy);
         }
     }
 
     resize(): void {
-        // Resize is handled automatically in update()
     }
 
     private drawStepGlyph(g: PIXI.Graphics, x: number, y: number, s: number, types: NoteType[], energy: number): void {
-        // ✅ 渲染逻辑简化：直接使用传入的 energy (0.0 - 1.0)
-
         const cx = x + s / 2;
         const cy = y + s / 2;
         const baseColor = 0xFFFFFF;
 
-        // 1. Layer Bottom: Kick (最底层 - 实心圆 + 扩散圆环)
         if (types.includes('KICK')) {
             g.circle(cx, cy, s * 0.4 * energy).fill({ color: baseColor, alpha: energy * 0.9 });
             g.circle(cx, cy, s * 0.4 + (s * 0.3 * (1 - energy))).stroke({ width: 1, color: baseColor, alpha: energy * 0.5 });
         }
 
-        // 2. Layer Mid: Toms / Percs (六边形)
         const hasTom = types.some(t => t.startsWith('TOM') || ['BONGO', 'CONGA'].includes(t));
         if (hasTom) {
             const sz = s * 0.35 * energy;
-            // 简单的六边形近似
             g.poly([cx, cy - sz, cx + sz * 0.86, cy + sz * 0.5, cx - sz * 0.86, cy + sz * 0.5]);
             g.stroke({ width: 2, color: baseColor, alpha: energy * 0.8 });
         }
 
-        // 3. Layer Core: Snare / Clap (方形)
         if (types.includes('SNARE') || types.includes('RIM')) {
             const sz = s * 0.5 * energy;
             g.rect(cx - sz / 2, cy - sz / 2, sz, sz).fill({ color: baseColor, alpha: energy });
@@ -235,26 +215,21 @@ export class PercussionGrid {
         else if (types.includes('CLAP')) {
             const sz = s * 0.5 * energy;
             g.rect(cx - sz / 2, cy - sz / 2, sz, sz).stroke({ width: 2, color: baseColor, alpha: energy });
-            // Clap 的重影效果
             g.rect(cx - sz / 2 + 4, cy - sz / 2 + 4, sz, sz).stroke({ width: 1, color: baseColor, alpha: energy * 0.5 });
         }
 
-        // 4. Layer Top: Hats (小圆点)
         const hasHat = types.some(t => t.startsWith('HAT'));
         if (hasHat) {
             const isSolo = types.length === 1;
             if (isSolo) {
-                // 独奏时的踩镲
                 g.circle(cx, cy, s * 0.1 * energy).fill({ color: baseColor, alpha: energy });
                 if (types.includes('HAT_OPEN')) g.circle(cx, cy, s * 0.3).stroke({ width: 1, color: baseColor, alpha: energy * 0.5 });
             } else {
-                // 组合时的踩镲（显示为两个小点）
                 g.circle(cx - s * 0.3, cy - s * 0.3, 2).fill({ color: baseColor, alpha: energy });
                 g.circle(cx + s * 0.3, cy + s * 0.3, 2).fill({ color: baseColor, alpha: energy });
             }
         }
 
-        // 5. Layer Splash: Cymbals (扩散环 + 星形)
         const hasCymbal = types.some(t => ['CRASH', 'RIDE', 'CHINA', 'SPLASH'].includes(t));
         if (hasCymbal) {
             g.circle(cx, cy, s * 1.2 * (1 - energy)).stroke({ width: 1, color: baseColor, alpha: energy });

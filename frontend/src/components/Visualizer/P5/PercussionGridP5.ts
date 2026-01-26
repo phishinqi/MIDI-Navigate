@@ -1,4 +1,3 @@
-// frontend/src/components/Visualizer/P5/PercussionGridP5.js
 import p5 from 'p5';
 import { getDrumVisuals } from '@/lib/percussionMap';
 

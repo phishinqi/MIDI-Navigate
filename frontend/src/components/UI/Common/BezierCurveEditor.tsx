@@ -1,7 +1,7 @@
-// frontend/src/components/UI/Common/BezierCurveEditor.jsx
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 // ==========================================
 // 0. CONSTANTS & CONFIG
@@ -300,8 +300,7 @@ const BezierCurveEditor: React.FC<BezierCurveEditorProps> = ({
     }
   };
 
-  const handleApplyPreset = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const name = e.target.value;
+  const handleApplyPreset = (name: string) => {
     if (name && onApplyPreset) {
       onApplyPreset(name);
       setSelectedPreset(name);
@@ -370,10 +369,15 @@ const BezierCurveEditor: React.FC<BezierCurveEditorProps> = ({
       <div className="space-y-2 pt-3 border-t border-white/10">
         <label className="text-[10px] font-bold text-white/40 mb-1 block">Presets</label>
         <div className="flex gap-2 items-center">
-          <select onChange={handleApplyPreset} value={selectedPreset} className="flex-grow bg-black/20 border border-white/10 rounded p-1.5 text-xs focus:outline-none focus:border-midi-accent">
-            <option value="">-- Select a Preset --</option>
-            {presets.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
-          </select>
+          <CustomSelect
+            value={selectedPreset}
+            onChange={handleApplyPreset}
+            className="flex-grow"
+            options={[
+              { value: "", label: "-- Select a Preset --" },
+              ...presets.map(p => ({ value: p.name, label: p.name }))
+            ]}
+          />
           <button
             onClick={handleDeletePreset}
             disabled={!currentSelectedPreset || currentSelectedPreset.isDefault}

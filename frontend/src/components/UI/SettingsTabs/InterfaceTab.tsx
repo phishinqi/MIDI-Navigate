@@ -10,7 +10,6 @@ import WsVisualizerButton from './InterfaceTabSections/WsVisualizerButton';
 import ThreeJsSettings from './InterfaceTabSections/ThreeJsSettings';
 import P5JsSettings from './InterfaceTabSections/P5JsSettings';
 import CanvasAppearance from './InterfaceTabSections/CanvasAppearance';
-import AudioIOSettings from './InterfaceTabSections/AudioIOSettings';
 import AnalysisSettings from './InterfaceTabSections/AnalysisSettings';
 import VisualsSettings from './InterfaceTabSections/VisualsSettings';
 import WidgetSettings from './InterfaceTabSections/WidgetSettings';
@@ -69,7 +68,7 @@ const InterfaceTab = () => {
 
       {/* 其他常驻设置 */}
       <CanvasAppearance />
-      <AudioIOSettings />
+      {/* AudioIOSettings moved to top-level tab */}
       <AnalysisSettings />
       <VisualsSettings />
       <WidgetSettings />

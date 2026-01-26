@@ -1,4 +1,3 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/WidgetSettings.jsx
 import React from 'react';
 import useStore from '@/store/useStore';
 import { Layout, Sliders } from 'lucide-react';

@@ -4,7 +4,7 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as Tone from 'tone';
 import useStore from '@/store/useStore';
 import MidiScene from './MidiScene';
-import PercussionGrid3D from './PercussionGrid3D'; // [NEW]
+import PercussionGrid3D from './PercussionGrid3D';
 import { isLightColor } from '@/lib/utils';
 
 const EngineThree = () => {
@@ -15,7 +15,6 @@ const EngineThree = () => {
 
   const lastUiUpdate = useRef(0);
 
-  // UI Sync Loop
   React.useLayoutEffect(() => {
     let frameId;
     const loop = () => {
@@ -51,18 +50,13 @@ const EngineThree = () => {
       >
         <color attach="background" args={[backgroundColor]} />
 
-        {/* 滚动音符层 */}
         <MidiScene />
-
-        {/* [NEW] 静态打击乐网格层 */}
-        {/* 放置在 Z=-10 左右，或者更深，取决于设计。MidiScene 的 BarLines 在 Z=-2 */}
-        {/* 我们在 PercussionGrid3D 内部控制位置，这里只需渲染 */}
         <PercussionGrid3D />
 
         {!isLight && (
           <EffectComposer enableNormalPass={false}>
             <Bloom
-              luminanceThreshold={0.2} // 稍微调低阈值让 Grid 也能发光
+              luminanceThreshold={0.2}
               mipmapBlur
               intensity={1.5}
               radius={0.6}

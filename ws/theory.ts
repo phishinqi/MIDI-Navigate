@@ -18,13 +18,8 @@ export class KeyDetector {
     private currentScore: number;
 
     constructor() {
-        // 12个音级 (Pitch Classes) 的能量池
         this.weights = new Array(12).fill(0);
-
-        // 记录当前按下的音符
         this.heldNotes = new Set();
-
-        // 预生成检测模板
         this.profiles = this.generateProfiles();
 
         // 状态
@@ -45,7 +40,7 @@ export class KeyDetector {
         const profiles: KeyProfile[] = [];
         for (const [scaleName, scaleData] of Object.entries(SCALES)) {
             const intervals = scaleData.intervals;
-            const template = new Array(12).fill(-5.0); // 严厉惩罚离调音
+            const template = new Array(12).fill(-5.0);
             intervals.forEach((interval, index) => {
                 let weight = 2.0;
                 if (index === 0) weight = 10.0;     // Root
@@ -155,6 +150,10 @@ export class ChordAnalyzer {
         this.activeNotes = new Set();
     }
 
+    get notes(): Set<number> {
+        return this.activeNotes;
+    }
+
     addNote(note: number): void {
         this.activeNotes.add(note);
     }
@@ -227,13 +226,6 @@ export class ChordAnalyzer {
 
     getRoman(chord: ChordResult, keyRoot: number, scaleName: string): string {
         if (!chord) return '';
-
-        // ✅ 核心修复逻辑：
-        // 1. 优先在完整库 SCALES 中查找 (支持 Harmonic Minor, Phrygian 等)
-        // 2. 其次在 SCALES_LOOKUP 中查找 (UI 传入的简化名称 'Major' / 'Minor')
-        // 3. 智能回退：如果 scaleName 包含 'Minor' 即使没找到也用 Aeolian
-        // 4. 默认回退到 Major (Ionian)
-
         let targetIntervals: number[];
 
         if (SCALES[scaleName]) {
@@ -246,18 +238,14 @@ export class ChordAnalyzer {
             targetIntervals = SCALES['Major (Ionian)'].intervals;
         }
 
-        // 计算和弦根音相对于调性主音的距离 (0-11)
         const relativeSemitone = (chord.root - keyRoot + 12) % 12;
 
         let degreeIndex = targetIntervals.indexOf(relativeSemitone);
         let accidental = '';
 
-        // 如果根音不在自然音阶内 (离调)
         if (degreeIndex === -1) {
             const flat = (relativeSemitone - 1 + 12) % 12;
             const sharp = (relativeSemitone + 1) % 12;
-
-            // 尝试找邻居 (例如 bIII, #IV)
             if (targetIntervals.includes(flat)) {
                 degreeIndex = targetIntervals.indexOf(flat);
                 accidental = '#';
@@ -266,23 +254,17 @@ export class ChordAnalyzer {
                 accidental = 'b';
             }
         }
-
-        // 实在找不到，返回问号
         if (degreeIndex === -1) return '?';
 
         const base = ROMAN_NUMERALS[degreeIndex] || '?';
         let roman = accidental + base;
 
-        // 大小写处理 (Minor, Dim, HalfDim 用小写)
         const q = chord.quality;
         const minorQualities = ['Min', 'Min7', 'Dim', 'Dim7', 'HalfDim', 'Min6', 'Min9', 'mAdd9'];
         if (minorQualities.includes(q)) roman = roman.toLowerCase();
-
-        // 后缀处理 (映射为罗马级数常用符号)
         let suffix = '';
 
-        // 从chord.name中提取后缀（去除根音部分）
-        const chordName = chord.name.split('/')[0]; // 去除转位标记
+        const chordName = chord.name.split('/')[0];
         const rootName = NOTE_NAMES[chord.root];
         const nameSuffix = chordName.substring(rootName.length);
 

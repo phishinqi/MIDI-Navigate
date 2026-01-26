@@ -1,4 +1,3 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/ThreeJsSettings.jsx
 import React from 'react';
 import useStore from '@/store/useStore';
 import { MoveHorizontal, MoveVertical, ArrowRightLeft, Video, ScanLine, GripVertical, MousePointer2 } from 'lucide-react';

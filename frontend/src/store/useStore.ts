@@ -81,9 +81,14 @@ interface StoreState {
   toggleExportMenu: () => void;
   isRecording: boolean;
   setIsRecording: (val: boolean) => void;
+  p5Instance: any | null;
+  setP5Instance: (instance: any | null) => void;
+  // SoundFont
+  isSoundFontLoaded: boolean;
+  loadSoundFont: (file: File) => Promise<void>;
+  resetSoundFont: () => void;
 }
 
-// 辅助函数：识别打击乐轨道
 const getDrumTrackIndices = (tracks: any[]) => {
   return tracks.map((t, i) => {
     const name = (t.name || "").toLowerCase();
@@ -125,7 +130,7 @@ const useStore = create<StoreState>()(
       resetTrackColors: () => set({ trackColors: {}, useDefaultTrackColors: true }),
       setUseDefaultTrackColors: (value) => set({ useDefaultTrackColors: value }),
 
-      // --- P5 Settings [整合版] ---
+      // --- P5 Settings ---
       p5Settings: {
         showCursor: true,
         shrinkSpeed: 0.08,
@@ -135,10 +140,7 @@ const useStore = create<StoreState>()(
         horizontalZoom: 1.0,
         noteHeight: 6,
         pageTurnMode: 'wipe',
-
-        // [NEW] 新增配置：每页显示多少个小节
         measuresPerPage: 1,
-
         growCurve: [0.1, 0.85, 0.75, 0.9],
         meteorHoldTime: 0.5,
         meteorFadeTime: 1.5,
@@ -305,6 +307,8 @@ const useStore = create<StoreState>()(
       toggleExportMenu: () => set(s => ({ showExportMenu: !s.showExportMenu })),
       isRecording: false,
       setIsRecording: (val) => set({ isRecording: val }),
+      p5Instance: null,
+      setP5Instance: (instance) => set({ p5Instance: instance }),
 
       setMidiData: (data, file) => {
         const { percussionSettings } = get();
@@ -371,6 +375,29 @@ const useStore = create<StoreState>()(
         ccValues: {},
         mutedTrackIndices: []
       }),
+
+      // --- SoundFont ---
+      isSoundFontLoaded: false,
+      loadSoundFont: async (file: File) => {
+        try {
+          const buffer = await file.arrayBuffer();
+          const result = await import('../utils/SoundFontAdapter').then(m => m.SoundFontAdapter.load(buffer));
+          if (result) {
+            set({ isSoundFontLoaded: true });
+          }
+        } catch (e) {
+          console.error("Failed to load SoundFont", e);
+        }
+      },
+      resetSoundFont: () => {
+        // Verify import exists or just reset state? 
+        // Ideally clear adapter too.
+        import('../utils/SoundFontAdapter').then(m => {
+          m.SoundFontAdapter.sf = null;
+          m.SoundFontAdapter.cachedBuffers.clear();
+        });
+        set({ isSoundFontLoaded: false });
+      },
     }),
 
     {

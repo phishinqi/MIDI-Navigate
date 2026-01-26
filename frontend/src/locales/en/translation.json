@@ -23,6 +23,7 @@
     "no_midi_mixer": "No MIDI loaded. Mixer controls are disabled.",
     "sections": {
       "mixer": "Mixer",
+      "audio": "Audio",
       "interface": "Interface",
       "grid": "Grid",
       "debug": "Debug",
@@ -77,7 +78,12 @@
     "status": {
       "active": "Active",
       "no_devices": "No Devices"
-    }
+    },
+    "sound_source": "Sound Source (SF2)",
+    "upload_help": "Upload a .sf2 file to replace default sounds. Large files may take time to load.",
+    "load_file": "Load .sf2 File",
+    "change_file": "Change SF2 File (Loaded)",
+    "reset": "Reset"
   },
   "canvas_appearance": {
     "title": "Canvas Appearance",
@@ -156,7 +162,38 @@
     "import": "Import Config",
     "import_success": "Configuration imported successfully!",
     "import_invalid": "Invalid configuration file.",
-    "import_failed": "Failed to parse configuration file."
+    "import_failed": "Failed to parse configuration file.",
+    "export_video": "Export Video / Sequence"
+  },
+  "export_modal": {
+    "title": "Export",
+    "format": "Format",
+    "video": "MP4 Video",
+    "sequence": "PNG Sequence",
+    "resolution": "Resolution",
+    "fps": "FPS",
+    "bitrate": "Bitrate (Mbps)",
+    "start": "Start Export",
+    "processing": "Processing",
+    "initializing": "Initializing...",
+    "check_console": "Failed. Check Console.",
+    "complete": "Export Complete!",
+    "rendering_audio": "Rendering Audio...",
+    "rendering_video": "Rendering Frame {{current}}/{{total}}",
+    "saving_frame": "Saving Frame {{current}}/{{total}}",
+    "zipping": "Zipping...",
+    "finalizing": "Finalizing...",
+    "cancel": "Cancel",
+    "include_audio": "Include Audio",
+    "external_midi_detected": "External MIDI Device Detected",
+    "external_midi_warning": "External MIDI sources (e.g. VirtualMIDISynth) cannot use offline rendering. This is a Web Audio API limitation.",
+    "audio_mode": "Audio Mode",
+    "offline_render": "Offline Render (Recommended)",
+    "offline_render_desc": "Fast rendering using browser audio",
+    "realtime_render": "Realtime Recording",
+    "realtime_render_desc": "Record in realtime, supports external MIDI",
+    "no_audio": "No Audio",
+    "no_audio_desc": "Export video only, add audio later"
   },
   "three_settings": {
     "title": "Viewport (Three.js)",

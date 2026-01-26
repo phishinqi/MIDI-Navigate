@@ -7,6 +7,7 @@ import { PercussionGrid } from './percussion';
 import { ChordAnalyzer, KeyDetector } from './theory';
 import './i18n'; // 初始化i18n
 import { t } from './i18n';
+import { AnalysisHUD } from './ui/hud';
 
 const WEBSOCKET_URL = 'ws://127.0.0.1:8080/ws/midi';
 const SCROLL_SPEED = 150;
@@ -23,8 +24,7 @@ let percussionGrid: PercussionGrid;
 
 let chordAnalyzer: ChordAnalyzer;
 let keyDetector: KeyDetector;
-
-// ✅ 五度圈已移除 - circleViz相关代码已完全删除
+let hud: AnalysisHUD;
 
 // --- Helper Functions ---
 function getNoteY(note: number, pitchScale: number): number {
@@ -90,11 +90,9 @@ function handleMidiEvent(event: MidiEvent): void {
             chordAnalyzer.addNote(note);
             const sens = settings ? settings.get('keySensitivity') : 1.0;
             keyDetector.noteOn(note, sens);
-            // ✅ circleViz.animateNoteOn已移除
         } else if (type === 'note_off' || (type === 'note_on' && velocity === 0)) {
             chordAnalyzer.removeNote(note);
             keyDetector.noteOff(note);
-            // ✅ circleViz.animateNoteOff已移除
         }
     }
 
@@ -140,6 +138,7 @@ function gameLoop(ticker: PIXI.Ticker): void {
 
     const deltaTime = ticker.deltaMS / 1000.0;
     const now = performance.now() / 1000;
+    const fps = ticker.FPS;
 
     // 1. Scroll
     const direction = settings ? settings.get('scrollDirection') : -1;
@@ -163,14 +162,19 @@ function gameLoop(ticker: PIXI.Ticker): void {
     // 3. Update Components
     if (percussionGrid && settings) percussionGrid.update(now, settings);
 
-    if (keyDetector && settings) {
+    // 4. Update Analysis & HUD
+    if (chordAnalyzer && keyDetector && settings && hud) {
         const halfLife = settings.get('keyHalfLife');
         const safeHalfLife = Math.max(0.1, halfLife);
         keyDetector.update(deltaTime, safeHalfLife);
-    }
 
-    // ✅ 4. CircleViz更新逻辑已完全移除
-    // 不再显示五度圈或HUD
+        if (settings.get('showAnalysis')) {
+            const chord = chordAnalyzer.detect();
+            const key = keyDetector.detect();
+            const activeNotes = Array.from(chordAnalyzer.notes);
+            hud.update(chord, key, activeNotes, fps);
+        }
+    }
 }
 
 function updateAllActiveNotesVisuals(): void {
@@ -213,23 +217,20 @@ async function main(): Promise<void> {
 
     chordAnalyzer = new ChordAnalyzer();
     keyDetector = new KeyDetector();
+    hud = new AnalysisHUD();
 
-    // ✅ CircleViz初始化已移除
 
     let lastPlayheadPos: number;
 
     settings = new SettingsManager((key, value) => {
         if (key === 'playheadPosition') {
-            // 计算播放头位置变化
             const width = app.screen.width;
-            const oldX = width * (lastPlayheadPos || 0.2); // Fallback if undefined initially
+            const oldX = width * (lastPlayheadPos || 0.2);
             const newX = width * (value as number);
             const deltaX = newX - oldX;
 
-            // 调整noteContainer位置
             noteContainer.x += deltaX;
 
-            // 调整所有音符的x坐标，使它们相对播放头保持位置不变
             noteContainer.children.forEach(child => {
                 child.x -= deltaX;
             });
@@ -250,7 +251,6 @@ async function main(): Promise<void> {
     let resizeTimeout: number | null = null;
 
     window.addEventListener('resize', () => {
-        // 清除之前的resize处理
         if (resizeTimeout !== null) {
             cancelAnimationFrame(resizeTimeout);
         }
@@ -261,34 +261,27 @@ async function main(): Promise<void> {
 
             if (!app || !app.screen || !settings || !noteContainer) return;
 
-            // 只有当尺寸真正改变时才处理
             if (app.screen.width === lastWidth && app.screen.height === lastHeight) return;
 
-            // 计算窗口大小变化导致的播放线位置变化
             const playheadPos = settings.get('playheadPosition');
             const oldPlayheadX = lastWidth * playheadPos;
             const newPlayheadX = app.screen.width * playheadPos;
             const deltaX = newPlayheadX - oldPlayheadX;
 
-            // 只有当deltaX有意义时才调整
             if (isFinite(deltaX) && Math.abs(deltaX) > 0.01) {
-                // 调整noteContainer位置以保持音符相对播放线的位置
                 noteContainer.x += deltaX;
 
-                // 调整所有音符的x坐标（包括活动和非活动的）
                 noteContainer.children.forEach(child => {
                     child.x -= deltaX;
                 });
             }
 
-            // 更新记录的尺寸
             lastWidth = app.screen.width;
             lastHeight = app.screen.height;
 
             updatePlayhead();
             updateAllActiveNotesVisuals();
             if (percussionGrid) percussionGrid.resize();
-            // ✅ circleViz.resize()调用已移除
         });
     });
 

@@ -1,4 +1,3 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/AnalysisSettings.jsx
 import React from 'react';
 import useStore from '@/store/useStore';
 import * as Switch from '@radix-ui/react-switch';

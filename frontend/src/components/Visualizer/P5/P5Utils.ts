@@ -1,10 +1,5 @@
-// frontend/src/components/Visualizer/P5/P5Utils.ts
 import p5 from 'p5';
 import { getDrumVisuals } from '@/lib/percussionMap';
-
-// ==========================================
-// NEW: Cubic Bezier Easing Function Generator
-// ==========================================
 
 const NEWTON_ITERATIONS = 4;
 const NEWTON_MIN_SLOPE = 0.001;
@@ -62,11 +57,6 @@ export const createBezier = (mX1: number, mY1: number, mX2: number, mY2: number)
   };
 };
 
-
-// ==========================================
-// 1. CONFIGURATION & HELPERS
-// ==========================================
-
 export const CONFIG = {
   SHRINK_SPEED: 0.05,
   GROW_SPEED: 3.0,
@@ -102,10 +92,6 @@ export const getLayout = (p: p5, settings: any) => {
 
   return { effectiveHeight, topMargin, effectiveWidth, leftMargin, noteH };
 };
-
-// ==========================================
-// 2. MIDI DATA PROCESSING
-// ==========================================
 
 export const calculateMeasureMap = (midi: any) => {
   if (!midi || !midi.header) return [];
@@ -282,11 +268,6 @@ export const getDrumStepsForMeasure = (midi: any, measure: any, visibleTracks: a
   steps.push(currentStep);
   return steps;
 };
-
-
-// ==========================================
-// 3. RENDERING LOGIC (绘制逻辑)
-// ==========================================
 
 export const drawBackground = (p: p5, bgColor: any, settings: any) => {
   if (bgColor) {

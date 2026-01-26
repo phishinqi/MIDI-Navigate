@@ -1,16 +1,13 @@
-// tailwind.config.js (位于项目根目录)
+// tailwind.config.js
 
 /** @type {import('tailwindcss').Config} */
 export default {
-  // --- 核心修正：更新扫描路径 ---
-  // 因为此文件现在在根目录，所以路径需要包含 'frontend'
   content: [
     "./frontend/index.html",
     "./frontend/src/**/*.{js,ts,jsx,tsx}",
-    "./ws/ws.html", // 同时扫描独立页面
+    "./ws/ws.html",
   ],
 
-  // 您的 theme 和 plugins 部分保持不变
   theme: {
     extend: {
       colors: {

@@ -1,4 +1,3 @@
-// frontend/src/components/Visualizer/PercussionGrid3D.jsx
 import React, { useRef, useMemo, useLayoutEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -6,10 +5,8 @@ import useStore from '../../../store/useStore.js';
 import { getDrumVisuals } from '../../../lib/percussionMap.js';
 import { GridSliceMaterial } from '../../../shaders/GridSliceShader.js';
 
-// --- 常量定义 (内存优化) ---
 const tempObject = new THREE.Object3D();
 const tempColor = new THREE.Color();
-// 闪光颜色：超亮的白色，配合 Bloom 产生爆发感
 const flashColor = new THREE.Color(2.5, 2.5, 2.5);
 
 const PercussionGrid3D = () => {
@@ -27,9 +24,6 @@ const PercussionGrid3D = () => {
 
     const meshKey = `grid-slice-${rows}-${cols}`;
 
-    // ==================================================================================
-    // 1. 数据解析 (Data Parsing) - 将 MIDI 转换为基于小节(Bar)的步进数据
-    // ==================================================================================
     const barData = useMemo(() => {
         if (!midiData) return [];
         let drumNotes = [];
@@ -124,9 +118,6 @@ const PercussionGrid3D = () => {
         return bars;
     }, [midiData]);
 
-    // ==================================================================================
-    // 2. 布局初始化 (Layout Initialization)
-    // ==================================================================================
     useLayoutEffect(() => {
         if (!enabled) return;
 
@@ -187,9 +178,6 @@ const PercussionGrid3D = () => {
         });
     }, [rows, cols, cellSize, spacing, positionY, positionZ, enabled, viewport.width, viewport.height]);
 
-    // ==================================================================================
-    // 3. 核心渲染循环 (Animation Loop)
-    // ==================================================================================
     useFrame(() => {
         if (!enabled || !meshRef0.current || !meshRef1.current || barData.length === 0) return;
 

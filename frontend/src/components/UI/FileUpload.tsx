@@ -1,4 +1,3 @@
-// frontend/src/components/UI/FileUpload.jsx
 import React, { useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
 import * as Tone from 'tone';

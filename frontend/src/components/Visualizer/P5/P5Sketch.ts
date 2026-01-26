@@ -10,6 +10,7 @@ import { drawPercussionGrid } from './PercussionGridP5';
 export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (p: p5) => {
   // --- Runtime State ---
   let measureMap = [];
+  let manualTime: number | null = null; // For offline rendering
 
   // Melodic Notes
   let cachedNotesCurrent = [];
@@ -39,6 +40,22 @@ export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (
     p.frameRate(60);
     p.rectMode(p.CORNER);
     p.noStroke();
+
+    // Export internal control methods
+    (p as any).renderFrame = (time: number) => {
+      manualTime = time;
+      p.redraw();
+    };
+
+    (p as any).setManualMode = (enabled: boolean) => {
+      if (enabled) {
+        manualTime = 0;
+        p.noLoop();
+      } else {
+        manualTime = null;
+        p.loop();
+      }
+    };
   };
 
   p.windowResized = () => {
@@ -71,7 +88,7 @@ export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (
     }
 
     // --- 3. Timing Calculation (Multi-Measure Page Logic) ---
-    const audioTime = Tone.Transport.seconds;
+    const audioTime = manualTime !== null ? manualTime : Tone.Transport.seconds;
 
     // 获取当前处于哪一个具体的小节
     const actualActiveMeasure = getBarInfoAtTime(measureMap, audioTime) || (measureMap.length > 0 ? measureMap[0] : { index: 0, startTime: 0, duration: 2, endTime: 2 });

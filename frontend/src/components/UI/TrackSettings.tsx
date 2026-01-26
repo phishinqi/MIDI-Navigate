@@ -4,6 +4,7 @@ import { Settings, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next'; // 引入 i18n
 
 import MixerTab from './SettingsTabs/MixerTab';
+import AudioTab from './SettingsTabs/AudioTab';
 import InterfaceTab from './SettingsTabs/InterfaceTab';
 import GridTab from './SettingsTabs/GridTab';
 import DebugTab from './SettingsTabs/DebugTab';
@@ -21,7 +22,7 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
   // 如果没有 MIDI 数据，默认显示 'interface' 标签页
   const [activeTab, setActiveTab] = useState(midiData ? 'mixer' : 'interface');
 
-  const modalBg = 'bg-midi-black/95 border-midi-gray text-white backdrop-blur-xl';
+  const modalBg = 'bg-[#121212] border-white/10 text-white'; // Removed backdrop-blur for performance
   const headerBg = 'bg-white/5 border-white/10';
   const activeTabClass = 'text-white border-midi-accent';
   const inactiveTabClass = 'text-white/30 hover:text-white';
@@ -35,6 +36,7 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
             {t('settings.no_midi_mixer', { defaultValue: 'No MIDI loaded. Mixer controls are disabled.' })}
           </div>
         );
+      case 'audio': return <AudioTab />;
       case 'interface': return <InterfaceTab />;
       case 'grid': return <GridTab />;
       case 'debug': return <DebugTab />;
@@ -44,10 +46,10 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
   };
 
   // 定义标签页列表
-  const tabs = ['mixer', 'interface', 'grid', 'debug', 'help'];
+  const tabs = ['mixer', 'audio', 'interface', 'grid', 'debug', 'help'];
 
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 animate-in fade-in duration-200">
       <div className={`w-[600px] border rounded-xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden ${modalBg}`}>
 
         {/* HEADER */}

@@ -1,4 +1,3 @@
-// frontend/src/components/UI/SettingsTabs/InterfaceTabSections/WsVisualizerButton.jsx
 import React from 'react';
 import { ExternalLink, Wifi } from 'lucide-react';
 import { useTranslation } from 'react-i18next'; // 1. 引入

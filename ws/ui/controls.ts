@@ -4,9 +4,7 @@
  * 提供各种UI控件的创建函数
  */
 
-/**
- * 创建section header
- */
+
 export function createSectionHeader(parent: HTMLElement, text: string): void {
     const h = document.createElement('div');
     h.className = 'section-header';
@@ -14,9 +12,6 @@ export function createSectionHeader(parent: HTMLElement, text: string): void {
     parent.appendChild(h);
 }
 
-/**
- * 创建Toggle开关
- */
 export function createToggle(label: string, checked: boolean, onChange: (value: boolean) => void): HTMLElement {
     const wrapper = document.createElement('div');
     wrapper.className = 'toggle-wrapper';
@@ -43,9 +38,6 @@ export function createToggle(label: string, checked: boolean, onChange: (value: 
     return wrapper;
 }
 
-/**
- * 创建分段控件 (Segmented Control)
- */
 export function createSegmentedControl<T>(
     label: string,
     options: Array<{ label: string, value: T }>,
@@ -75,9 +67,6 @@ export function createSegmentedControl<T>(
     return wrapper;
 }
 
-/**
- * 创建滑块控件
- */
 export function createSlider(
     label: string,
     min: number,
@@ -114,12 +103,6 @@ export function createSlider(
     return wrapper;
 }
 
-/**
- * 创建通道网格
- */
-/**
- * 创建通道列表 (Mixer Style)
- */
 export function createChannelGrid(
     isChannelEnabled: (ch: number) => boolean,
     toggleChannel: (ch: number) => void
@@ -127,7 +110,6 @@ export function createChannelGrid(
     const list = document.createElement('div');
     list.className = 'mixer-list';
 
-    // Mock colors for channels 1-16 (just to match the colorful look of frontend mixer)
     const mockColors = [
         '#ef4444', '#f97316', '#f59e0b', '#84cc16',
         '#10b981', '#06b6d4', '#3b82f6', '#6366f1',
@@ -139,14 +121,12 @@ export function createChannelGrid(
         const row = document.createElement('div');
         row.className = 'mixer-row';
 
-        // 1. Visibility Button (Eye Icon)
         const visCol = document.createElement('div');
         visCol.className = 'mixer-col-vis';
         const visBtn = document.createElement('button');
         const enabled = isChannelEnabled(i);
         visBtn.className = `mixer-btn-vis ${enabled ? 'active' : ''}`;
 
-        // Icons
         const iconEye = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
         const iconEyeOff = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.05A10.59 10.59 0 0 1 12 5c7 0 10 7 10 7a13.12 13.12 0 0 1-5.47 5.76"/><path d="M2 2l20 20"/><path d="M17.77 17.77A10.58 10.58 0 0 1 12 19c-7 0-10-7-10-7a13.12 13.12 0 0 1 5.47-5.76"/></svg>`;
 
@@ -154,23 +134,19 @@ export function createChannelGrid(
 
         visBtn.onclick = () => {
             toggleChannel(i);
-            const newState = !enabled; // Note: This local var toggle logic is simplified, real state comes from re-render usually, but for DOM:
-            // Actually, best to rebuild or toggle class.
-            // Since we don't have full React reactivity, we manually toggle classes/icons for immediate feedback
+            const newState = !enabled;
             const isNowActive = visBtn.classList.toggle('active');
             visBtn.innerHTML = isNowActive ? iconEye : iconEyeOff;
         };
         visCol.appendChild(visBtn);
 
-        // 2. Track Name
         const nameCol = document.createElement('div');
         nameCol.className = 'mixer-col-name';
-        nameCol.innerText = `Channel ${i + 1}`; // Basic name since we don't have MIDI parsing here yet
+        nameCol.innerText = `Channel ${i + 1}`;
         if (i === 9) nameCol.innerText += ' (Percussion)';
 
-        // 3. Color Indicator (Stylistic Only)
         const colorCol = document.createElement('div');
-        colorCol.className = 'mixer-col-vis'; // reusing center alignment
+        colorCol.className = 'mixer-col-vis';
         const dot = document.createElement('div');
         dot.className = 'mixer-col-color';
         dot.style.backgroundColor = mockColors[i];

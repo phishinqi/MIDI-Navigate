@@ -472,10 +472,248 @@ export function injectStyles(): void {
             background: rgba(0, 0, 0, 0.5);
         }
 
+
         .viz-select option {
             background: #1a1a1a;
             color: rgba(255, 255, 255, 0.87);
             padding: 8px;
+        }
+
+        /* --- Analysis HUD --- */
+        .hud-container {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 16px;
+            z-index: 1000;
+            user-select: none;
+            font-family: Inter, system-ui, sans-serif;
+            pointer-events: none; /* Let clicks pass through */
+        }
+        
+        /* Chord Section */
+        .hud-chord-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        
+        .hud-header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+        
+        .hud-source-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .hud-conf-wrapper {
+            width: 32px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        
+        .hud-conf-bar {
+            height: 100%;
+            background: #e0e0e0; /* midi-accent */
+            width: 0%;
+            transition: width 0.2s;
+        }
+        
+        .hud-chord-name {
+            font-size: 32px;
+            font-weight: 300;
+            line-height: 1;
+            letter-spacing: -0.02em;
+            color: #fff;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+        }
+        
+        .hud-aliases {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 16px;
+            overflow: hidden;
+        }
+        
+        .hud-aliases .label {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .hud-aliases .value {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Active Notes */
+        .hud-notes-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        
+        .hud-notes-row .label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .hud-active-notes {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 4px;
+            max-width: 200px;
+        }
+        
+        .hud-note-pill {
+            font-size: 11px;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            color: #e0e0e0;
+        }
+        
+        .hud-note-empty {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Stats Panel */
+        .hud-stats-panel {
+            background: rgba(10, 10, 10, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: auto; /* Allow interaction if expandable later */
+            transition: background 0.3s;
+        }
+        
+        .hud-stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+        
+        .hud-stats-header .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .hud-fps {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.3);
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .hud-fps.low { color: #f87171; font-weight: bold; }
+        
+        .hud-stats-grid {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .hud-stat-col {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        
+        .hud-stat-col.center { align-items: center; }
+        
+        .hud-stat-col .label {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 2px;
+        }
+        
+        .hud-stat-col .value {
+            font-size: 16px;
+            font-weight: 300;
+            color: #fff;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .hud-stat-col .value.accent { color: #e0e0e0; }
+        
+        .hud-stat-col .row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .hud-stat-col .conf-text {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.4);
+            width: 24px;
+            text-align: right;
+        }
+        
+        .hud-stat-col .mini-bar-bg {
+            width: 32px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+        }
+        
+        .hud-stat-col .mini-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: #fff;
+            width: 50%;
+        }
+        
+        .hud-stat-col .sub-value {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.3);
+            margin-top: 2px;
+        }
+        
+        .hud-divider {
+            width: 1px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
         }
     `;
 

@@ -5,55 +5,36 @@ export function cn(...inputs: any[]) {
   return twMerge(clsx(inputs))
 }
 
-/**
- * 智能修复 MIDI 文本编码
- * 修复逻辑：
- * 1. 将乱码字符串回退为原始字节 (假设是 Latin1 误读)
- * 2. 探测顺序调整为：UTF-8 -> Shift-JIS -> GBK
- *    (Shift-JIS 必须在 GBK 之前，否则日文会被误判为生僻汉字)
- * 3. 使用 {fatal: true} 确保只有完全匹配编码格式时才返回
- */
 export function fixEncoding(str: string) {
   if (!str) return "Untitled";
 
-  // 如果没有高位字节，说明是纯 ASCII，直接返回
-  // eslint-disable-next-line no-control-regex
   const hasHighBytes = /[\u0080-\u00FF]/.test(str);
   if (!hasHighBytes) return str;
 
   try {
-    // 1. 回退为原始字节
     const bytes = new Uint8Array(str.length);
     for (let i = 0; i < str.length; i++) {
       bytes[i] = str.charCodeAt(i) & 0xFF;
     }
 
-    // 2. 尝试 UTF-8 (最严格，优先解决 "大号" 等现代文件)
     try {
       const decoder = new TextDecoder('utf-8', { fatal: true });
       return decoder.decode(bytes);
     } catch (e) {
-      // 不是 UTF-8，继续尝试
     }
 
-    // 3. [FIX] 尝试 Shift-JIS (调高优先级)
-    // 解决 "僄儗..." (Electric Guitar) 等日文乱码
     try {
       const decoder = new TextDecoder('shift-jis', { fatal: true });
       return decoder.decode(bytes);
     } catch (e) {
-      // 不是 Shift-JIS
     }
 
-    // 4. 尝试 GBK (中文常见)
     try {
       const decoder = new TextDecoder('gbk', { fatal: true });
       return decoder.decode(bytes);
     } catch (e) {
-      // 不是 GBK
     }
 
-    // 5. 都失败了，返回原始字符串 (Latin1)
     return str;
 
   } catch (e) {
@@ -65,30 +46,14 @@ export function getTrackHue(index: number) {
   return (index * 137.5 + 20) % 360;
 }
 
-/**
- * 获取轨道颜色 (支持自定义颜色)
- * @param {number} index - 轨道索引
- * @param {object} trackColors - 自定义颜色映射 {trackIndex: hexColor}
- * @param {boolean} useDefault - 是否使用默认颜色
- * @returns {string} hex格式颜色
- */
 export function getTrackColor(index: number, trackColors: Record<number, string> = {}, useDefault = true) {
-  // 如果不使用默认颜色且存在自定义颜色,则返回自定义颜色
   if (!useDefault && trackColors[index]) {
     return trackColors[index];
   }
-  // 否则使用默认的黄金角算法生成颜色
   const hue = getTrackHue(index);
   return hslToHex(hue, 70, 60);
 }
 
-/**
- * 将HSL转换为Hex颜色
- * @param {number} h - 色相 (0-360)
- * @param {number} s - 饱和度 (0-100)
- * @param {number} l - 亮度 (0-100)
- * @returns {string} hex格式颜色
- */
 export function hslToHex(h: number, s: number, l: number) {
   s /= 100;
   l /= 100;
@@ -110,13 +75,11 @@ export function hslToHex(h: number, s: number, l: number) {
 }
 
 export function getTrackColorCSS(index: number, opacity = 1, trackColors: Record<number, string> = {}, useDefault = true) {
-  // 如果不使用默认颜色且存在自定义颜色
   if (!useDefault && trackColors[index]) {
     const hex = trackColors[index];
     const { r, g, b } = hexToRgb(hex);
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   }
-  // 使用默认颜色
   const hue = getTrackHue(index);
   return `hsla(${hue}, 70%, 60%, ${opacity})`;
 }

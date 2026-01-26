@@ -1,4 +1,3 @@
-// frontend/src/lib/api.js
 const API_BASE = '/api/v1';
 
 export const api = {
@@ -25,7 +24,6 @@ export const api = {
     formData.append('file', file);
     formData.append('track_indices', JSON.stringify(trackIndices));
 
-    // Map sensitivity (1=High, 2=Med, 3=Low) to Window Size (Seconds)
     const winSize = sensitivity === 1 ? 2.0 : (sensitivity === 3 ? 10.0 : 5.0);
 
     formData.append('complexity', complexity);
@@ -43,21 +41,18 @@ export const api = {
     return response.json();
   },
 
-  // [NEW] Real-time Chord Analysis
   analyzeChord: async (notes: any[]) => {
     const response = await fetch(`${API_BASE}/analyze/chord`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      // 必须是对象结构 { notes: [...] }，不能直接是 notes 数组
       body: JSON.stringify({
         notes: notes,
         detect_type: "standard"
       }),
     });
 
-    // 增加错误日志帮助调试
     if (!response.ok) {
       const err = await response.text();
       console.error("Chord API Error:", response.status, err);

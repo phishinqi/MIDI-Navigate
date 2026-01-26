@@ -1,4 +1,3 @@
-// frontend/src/components/UI/AnalysisHUD.jsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import useStore from '@/store/useStore';
 import { Zap, Waves, Loader2, ChevronDown, ChevronUp, Activity, Server, Cpu } from 'lucide-react';

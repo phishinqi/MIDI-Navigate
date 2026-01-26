@@ -4,7 +4,6 @@ import type { Scales } from './types';
 export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 export const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'] as const;
 
-// --- 音阶定义 ---
 export const SCALES: Scales = {
     'Major (Ionian)': { intervals: [0, 2, 4, 5, 7, 9, 11] },
     'Minor (Aeolian)': { intervals: [0, 2, 3, 5, 7, 8, 10] },
@@ -29,13 +28,11 @@ export const SCALES: Scales = {
     'In Sen': { intervals: [0, 1, 5, 7, 10] }
 };
 
-// 简化查找表
 export const SCALES_LOOKUP = {
     'Major': SCALES['Major (Ionian)'].intervals,
     'Minor': SCALES['Minor (Aeolian)'].intervals
 } as const;
 
-// --- 和弦模板 ---
 export interface ChordTemplate {
     name: string;
     intervals: readonly number[];
@@ -43,7 +40,6 @@ export interface ChordTemplate {
 }
 
 export const CHORD_TEMPLATES: readonly ChordTemplate[] = [
-    // Triads
     { name: '', intervals: [0, 4, 7], quality: 'Maj' },
     { name: 'm', intervals: [0, 3, 7], quality: 'Min' },
     { name: 'dim', intervals: [0, 3, 6], quality: 'Dim' },
@@ -51,7 +47,6 @@ export const CHORD_TEMPLATES: readonly ChordTemplate[] = [
     { name: 'sus2', intervals: [0, 2, 7], quality: 'Sus2' },
     { name: 'sus4', intervals: [0, 5, 7], quality: 'Sus4' },
 
-    // Sevenths
     { name: 'maj7', intervals: [0, 4, 7, 11], quality: 'Maj7' },
     { name: 'm7', intervals: [0, 3, 7, 10], quality: 'Min7' },
     { name: '7', intervals: [0, 4, 7, 10], quality: 'Dom7' },
@@ -62,7 +57,6 @@ export const CHORD_TEMPLATES: readonly ChordTemplate[] = [
     { name: 'maj7#5', intervals: [0, 4, 8, 11], quality: 'Maj7Sharp5' },
     { name: '7sus4', intervals: [0, 5, 7, 10], quality: 'Dom7sus4' },
 
-    // Extensions
     { name: '6', intervals: [0, 4, 7, 9], quality: 'Maj6' },
     { name: 'm6', intervals: [0, 3, 7, 9], quality: 'Min6' },
     { name: 'add9', intervals: [0, 2, 4, 7], quality: 'Add9' },
