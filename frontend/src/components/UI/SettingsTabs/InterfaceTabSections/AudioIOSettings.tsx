@@ -1,6 +1,6 @@
 import React from 'react';
 import useStore from '@/store/useStore';
-import { audioEngine } from '@/audio/AudioEngine';
+import { getAudioEngine } from '@/audio/AudioEngine';
 import { Cable, Volume2, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +16,7 @@ const AudioIOSettings = () => {
     const handleMidiOutputChange = (e) => {
         const val = e.target.value;
         setSelectedMidiOutput(val);
-        audioEngine.selectMidiOutput(val);
+        getAudioEngine().selectMidiOutput(val);
     };
 
     const toggleBgOn = 'bg-midi-accent';

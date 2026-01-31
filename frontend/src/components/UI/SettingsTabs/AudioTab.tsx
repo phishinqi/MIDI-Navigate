@@ -1,6 +1,6 @@
 import React from 'react';
 import useStore from '@/store/useStore';
-import { audioEngine } from '@/audio/AudioEngine';
+import { getAudioEngine } from '@/audio/AudioEngine';
 import { Cable, Volume2, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import CustomSelect from '../Common/CustomSelect';
@@ -48,7 +48,7 @@ const AudioTab = () => {
                         value={selectedMidiOutput || 'none'}
                         onChange={(val) => {
                             setSelectedMidiOutput(val);
-                            audioEngine.selectMidiOutput(val);
+                            getAudioEngine().selectMidiOutput(val);
                         }}
                         options={[
                             { value: 'none', label: t('audio_io.browser_only', { defaultValue: '-- Use Browser Audio Only --' }) },

@@ -1,6 +1,6 @@
 // ws/theory.ts
-import type { KeyResult, ChordResult, ScaleDefinition } from './types';
-import { NOTE_NAMES, ROMAN_NUMERALS, SCALES, SCALES_LOOKUP, CHORD_TEMPLATES, type ChordTemplate } from './constants';
+import type { KeyResult, ChordResult } from './types';
+import { NOTE_NAMES, ROMAN_NUMERALS, SCALES, SCALES_LOOKUP, CHORD_TEMPLATES } from './constants';
 
 interface KeyProfile {
     name: string;
@@ -8,7 +8,7 @@ interface KeyProfile {
 }
 
 /**
- * 调性检测器 (Statistical Accumulation)
+ * Key Detector (Statistical Accumulation)
  */
 export class KeyDetector {
     private weights: number[];
@@ -22,7 +22,7 @@ export class KeyDetector {
         this.heldNotes = new Set();
         this.profiles = this.generateProfiles();
 
-        // 状态
+        // State
         this.currentKey = {
             root: 0,
             type: 'Major',
@@ -34,7 +34,7 @@ export class KeyDetector {
     }
 
     /**
-     * 生成匹配模板
+     * Generate profiles
      */
     private generateProfiles(): KeyProfile[] {
         const profiles: KeyProfile[] = [];
@@ -99,13 +99,13 @@ export class KeyDetector {
                 if (score > bestScore) {
                     secondBestScore = bestScore;
                     bestScore = score;
-                    // 简单的 Major/Minor 归类，用于UI指针颜色
+                    // Simple Major/Minor classification for UI
                     const type: 'Major' | 'Minor' = (profile.name.includes('Minor') || profile.name.includes('Dorian')) ? 'Minor' : 'Major';
 
                     bestCandidate = {
                         root: root,
                         type: type,
-                        scaleName: profile.name, // 传递完整的 scaleName (如 'Harmonic Minor')
+                        scaleName: profile.name, // Pass full scaleName
                         name: `${NOTE_NAMES[root]} ${profile.name}`,
                         confidence: 0
                     };
@@ -141,7 +141,7 @@ export class KeyDetector {
 }
 
 /**
- * 和弦分析器
+ * Chord Analyzer
  */
 export class ChordAnalyzer {
     private activeNotes: Set<number>;

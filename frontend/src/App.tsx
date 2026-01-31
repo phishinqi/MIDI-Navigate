@@ -7,7 +7,7 @@ import TrackSettings from '@/components/UI/TrackSettings';
 import useStore from '@/store/useStore';
 import { Eye, EyeOff, Settings } from 'lucide-react';
 import { isLightColor } from '@/lib/utils';
-import { audioEngine } from '@/audio/AudioEngine';
+import { getAudioEngine } from '@/audio/AudioEngine';
 import AudioEngineManager from '@/audio/AudioEngineManager';
 import ExportModal from '@/components/UI/ExportModal';
 
@@ -37,12 +37,12 @@ function App() {
         case 'Space':
           e.preventDefault();
           if (midiData) {
-            audioEngine.ensureContext().then(() => {
+            getAudioEngine().ensureContext().then(() => {
               if (useStore.getState().isPlaying) {
-                audioEngine.pause();
+                getAudioEngine().pause();
                 setIsPlaying(false);
               } else {
-                audioEngine.play();
+                getAudioEngine().play();
                 setIsPlaying(true);
               }
             });
@@ -60,7 +60,7 @@ function App() {
             const newTime = Math.max(0, currentTime - step);
 
             setCurrentTime(newTime);
-            audioEngine.seek(newTime);
+            getAudioEngine().seek(newTime);
 
             // If dragging/seeking, usually we pause or ensure transport sync
             // But Tone.Transport.seconds handles sync.
@@ -74,7 +74,7 @@ function App() {
             const newTime = Math.min(duration, currentTime + step);
 
             setCurrentTime(newTime);
-            audioEngine.seek(newTime);
+            getAudioEngine().seek(newTime);
           }
           break;
         default: break;

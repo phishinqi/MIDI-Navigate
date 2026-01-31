@@ -5,7 +5,7 @@ import * as PIXINamespace from 'pixi.js';
 import { SettingsManager } from './ui';
 import { PercussionGrid } from './percussion';
 import { ChordAnalyzer, KeyDetector } from './theory';
-import './i18n'; // 初始化i18n
+import './i18n';
 import { t } from './i18n';
 import { AnalysisHUD } from './ui/hud';
 
@@ -255,7 +255,7 @@ async function main(): Promise<void> {
             cancelAnimationFrame(resizeTimeout);
         }
 
-        // 使用requestAnimationFrame确保在PIXI更新screen尺寸后执行
+        // Use requestAnimationFrame to ensure execution after PIXI updates screen size
         resizeTimeout = requestAnimationFrame(() => {
             resizeTimeout = null;
 

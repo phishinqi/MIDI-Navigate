@@ -231,7 +231,7 @@ export class SettingsManager {
         document.body.appendChild(modal);
         this.refreshKeyUI();
 
-        // 监听语言变化并重新创建模态框
+        // Listen for language changes and recreate modal
         onLanguageChanged(() => {
             const existingModal = document.getElementById('viz-settings-modal');
             const existingBackdrop = document.getElementById('viz-settings-backdrop');

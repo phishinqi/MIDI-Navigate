@@ -1,5 +1,5 @@
 // ws/ui/hud.ts
-import { t } from '../i18n';
+
 import type { ChordResult, KeyResult } from '../types';
 import { NOTE_NAMES } from '../constants';
 

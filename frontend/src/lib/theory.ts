@@ -1,6 +1,6 @@
 import { Chord, Note } from "@tonaljs/tonal";
-import { detect } from './chordNameFinder';
-import { detectChord } from './chordAnalyzer';
+import { detect } from './chordAnalyzer';
+import { detectChord } from './chordNameFinder';
 
 
 export const midiToNoteName = (midi: number) => {

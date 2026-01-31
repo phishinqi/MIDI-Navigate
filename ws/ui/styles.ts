@@ -1,7 +1,7 @@
 // ws/ui/styles.ts
 /**
- * CSS样式注入模块
- * 负责将所有UI样式注入到页面中
+ * CSS styles injection module
+ * Responsible for injecting all UI styles into the page
  */
 
 export function injectStyles(): void {

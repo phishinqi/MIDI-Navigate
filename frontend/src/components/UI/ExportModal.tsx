@@ -8,7 +8,7 @@ import CustomSelect from './Common/CustomSelect';
 
 const ExportModal = () => {
     const { t } = useTranslation();
-    const { showExportMenu, toggleExportMenu, midiData, p5Instance } = useStore();
+    const { showExportMenu, toggleExportMenu, midiData, p5Instance, threeInstance, renderEngine } = useStore();
 
     // Audio Source Detection
     const selectedMidiOutput = useStore(state => state.selectedMidiOutput);
@@ -16,11 +16,13 @@ const ExportModal = () => {
 
     // UI State
     const [mode, setMode] = useState<'video' | 'sequence'>('video');
+    const [format, setFormat] = useState<'mp4' | 'webm' | 'hevc'>('mp4'); // Default mp4
     const [resolution, setResolution] = useState<{ w: number, h: number }>({ w: 1920, h: 1080 });
     const [fps, setFps] = useState(60);
     const [bitrate, setBitrate] = useState(8); // Mbps
     const [enableAudio, setEnableAudio] = useState(true);
     const [renderMode, setRenderMode] = useState<'offline' | 'none'>('offline');
+    const [transparentBackground, setTransparentBackground] = useState(false);
 
     // Process State
     const [isProcessing, setIsProcessing] = useState(false);
@@ -55,8 +57,10 @@ const ExportModal = () => {
     };
 
     const handleExport = async () => {
-        if (!midiData || !p5Instance) {
-            setError("No MIDI data or Renderer loaded.");
+        const rendererInstance = renderEngine === 'three' ? threeInstance : p5Instance;
+
+        if (!midiData || !rendererInstance) {
+            setError(`No MIDI data or ${renderEngine === 'three' ? 'Three.js' : 'P5'} Renderer loaded.`);
             return;
         }
 
@@ -76,7 +80,10 @@ const ExportModal = () => {
                 fps: fps,
                 bitrate: bitrate * 1000000,
                 enableAudio: renderMode !== 'none', // Audio enabled if not 'none'
+
                 renderMode: renderMode, // Pass render mode to ExportManager
+                transparentBackground,
+                format: format, // Pass format
                 signal: abortController.signal
             };
 
@@ -102,9 +109,9 @@ const ExportModal = () => {
             };
 
             if (mode === 'video') {
-                await ExportManager.exportVideo(midiData, p5Instance, options, onProgress);
+                await ExportManager.exportVideo(midiData, rendererInstance, options, onProgress);
             } else {
-                await ExportManager.exportSequence(midiData, p5Instance, options, onProgress);
+                await ExportManager.exportSequence(midiData, rendererInstance, options, onProgress);
             }
 
             setStatusText(t('export_modal.complete', { defaultValue: "Export Complete!" }));
@@ -143,7 +150,10 @@ const ExportModal = () => {
                     {/* Mode Selection */}
                     <div className="grid grid-cols-2 gap-3">
                         <button
-                            onClick={() => setMode('video')}
+                            onClick={() => {
+                                setMode('video');
+                                setTransparentBackground(false);
+                            }}
                             disabled={isProcessing}
                             className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-all ${mode === 'video' ? 'bg-midi-accent/10 border-midi-accent text-midi-accent' : 'bg-white/5 border-transparent text-white/40 hover:bg-white/10'}`}
                         >
@@ -183,6 +193,26 @@ const ExportModal = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
+                            {mode === 'video' && (
+                                <div className="space-y-2">
+                                    <label className="text-xs text-white/40 uppercase tracking-wider">{t('export_modal.format', { defaultValue: 'Format' })}</label>
+                                    <CustomSelect
+                                        disabled={isProcessing}
+                                        value={format}
+                                        onChange={(val) => {
+                                            setFormat(val as 'mp4' | 'webm' | 'hevc');
+                                            // If switching to MP4 (H.264), disable transparency
+                                            if (val === 'mp4') setTransparentBackground(false);
+                                        }}
+                                        options={[
+                                            { value: "mp4", label: "MP4 (H.264)" },
+                                            { value: "webm", label: "WebM (VP9/VP8)" },
+                                            { value: "hevc", label: "MOV / MP4 (HEVC)" },
+                                        ]}
+                                    />
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <label className="text-xs text-white/40 uppercase tracking-wider">{t('export_modal.fps', { defaultValue: 'FPS' })}</label>
                                 <CustomSelect
@@ -196,10 +226,36 @@ const ExportModal = () => {
                                         { value: 48, label: "48 FPS" },
                                         { value: 50, label: "50 FPS" },
                                         { value: 60, label: "60 FPS" },
-                                        { value: 120, label: "120 FPS" }
+                                        { value: 120, label: "120 FPS" },
+                                        { value: 240, label: "240 FPS" }
                                     ]}
                                 />
                             </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs text-white/40 uppercase tracking-wider">{t('export_modal.background', { defaultValue: 'Background' })}</label>
+                                <label className={`flex items-center gap-3 p-3 rounded border transition-all cursor-pointer ${transparentBackground
+                                    ? 'bg-midi-accent/10 border-midi-accent'
+                                    : 'bg-white/5 border-white/10 hover:bg-white/10'
+                                    } ${mode === 'video' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={transparentBackground}
+                                        onChange={(e) => setTransparentBackground(e.target.checked)}
+                                        disabled={isProcessing || mode === 'video'}
+                                        className="w-4 h-4 rounded border-white/20 bg-black/40 text-midi-accent focus:ring-midi-accent focus:ring-offset-0"
+                                    />
+                                    <span className="text-sm font-medium text-white">
+                                        {t('export_modal.transparent_bg', { defaultValue: 'Transparent Background' })}
+                                    </span>
+                                </label>
+                                {mode === 'video' && (
+                                    <p className="text-[10px] text-white/40 px-1">
+                                        {t('export_modal.video_transparency_hint', { defaultValue: '视频模式暂不支持透明导出，请使用序列帧模式' })}
+                                    </p>
+                                )}
+                            </div>
+
                             {mode === 'video' && (
                                 <div className="space-y-2">
                                     <label className="text-xs text-white/40 uppercase tracking-wider">{t('export_modal.bitrate', { defaultValue: 'Bitrate (Mbps)' })}</label>

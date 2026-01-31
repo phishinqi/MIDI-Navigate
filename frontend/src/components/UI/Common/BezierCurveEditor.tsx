@@ -3,9 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
 import CustomSelect from './CustomSelect';
 
-// ==========================================
-// 0. CONSTANTS & CONFIG
-// ==========================================
+// Constants & Config
 const SIZE = 180;
 const PADDING = 40;
 const TOTAL_SIZE = SIZE + PADDING * 2;
@@ -18,9 +16,7 @@ const SUBDIVISION_MAX_ITERATIONS = 10;
 const kSplineTableSize = 11;
 const kSampleStepSize = 1.0 / (kSplineTableSize - 1.0);
 
-// ==========================================
-// 1. SELF-CONTAINED: Cubic Bezier Easing Function Generator
-// ==========================================
+// Cubic Bezier Easing Function Generator
 const A = (aA1: number, aA2: number) => 1.0 - 3.0 * aA2 + 3.0 * aA1;
 const B = (aA1: number, aA2: number) => 3.0 * aA2 - 6.0 * aA1;
 const C = (aA1: number) => 3.0 * aA1;
@@ -74,9 +70,7 @@ const createBezier = (mX1: number, mY1: number, mX2: number, mY2: number) => {
   };
 };
 
-// ==========================================
-// 2. SELF-CONTAINED: Sample Animator Component
-// ==========================================
+// Sample Animator Component
 const SampleAnimator = ({ curveValue }: { curveValue: number[] }) => {
   const barRef = useRef(null);
   const animationFrameId = useRef(null);
@@ -113,9 +107,7 @@ const SampleAnimator = ({ curveValue }: { curveValue: number[] }) => {
   );
 };
 
-// ==========================================
-// 3. VELOCITY VISUALIZATION CURVE
-// ==========================================
+// Velocity Visualization Curve
 const VelocityCurve = ({ value }: { value: number[] }) => {
   const segments = useMemo(() => {
     const SEGMENT_COUNT = 50;
@@ -169,9 +161,7 @@ const VelocityCurve = ({ value }: { value: number[] }) => {
   );
 };
 
-// ==========================================
-// 4. FINAL & COMPLETE: Main BezierCurveEditor Component
-// ==========================================
+// Main BezierCurveEditor Component
 const format = (n, precision = 2) => parseFloat(n).toFixed(precision);
 
 interface BezierCurveEditorProps {

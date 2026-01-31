@@ -1,31 +1,28 @@
-// src/audio/AudioEngineManager.jsx (假设您已创建此文件)
+
 import { useEffect } from 'react';
 import useStore from '@/store/useStore';
-import { audioEngine } from '@/audio/AudioEngine';
+import { getAudioEngine } from '@/audio/AudioEngine';
 
 const AudioEngineManager = () => {
   const midiData = useStore((state) => state.midiData);
 
   useEffect(() => {
-    // 这个 Effect 负责 AudioEngine 的核心生命周期
+    // Manage AudioEngine lifecycle
     console.log('[AudioEngineManager] MIDI data changed. Reloading engine.');
 
-    // 先清理旧的实例
-    audioEngine.cleanup();
+    getAudioEngine().cleanup();
 
-    // 如果有新数据，则加载
     if (midiData) {
-      audioEngine.loadMidi(midiData);
+      getAudioEngine().loadMidi(midiData);
     }
 
-    // 这个 effect 的清理函数只会在整个组件被卸载时（即应用关闭）执行
     return () => {
       console.log('[AudioEngineManager] Cleaning up on component unmount.');
-      audioEngine.cleanup();
+      getAudioEngine().cleanup();
     };
-  }, [midiData]); // 关键：仅依赖 midiData
+  }, [midiData]);
 
-  return null; // 此组件不渲染任何UI
+  return null;
 };
 
 export default AudioEngineManager;

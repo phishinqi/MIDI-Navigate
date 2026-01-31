@@ -14,9 +14,7 @@ const EngineP5 = () => {
   const setIsPlaying = useStore((state) => state.setIsPlaying);
   const setP5Instance = useStore((state) => state.setP5Instance);
 
-  // ----------------------------------------------------------------
-  // 1. Time Sync Loop (The Heartbeat)
-  // ----------------------------------------------------------------
+  // Time Sync Loop
   useLayoutEffect(() => {
     let frameId;
     const loop = () => {
@@ -45,9 +43,7 @@ const EngineP5 = () => {
     return () => cancelAnimationFrame(frameId);
   }, [setCurrentTime, setIsPlaying]);
 
-  // ----------------------------------------------------------------
-  // 2. Initialize P5
-  // ----------------------------------------------------------------
+  // Initialize P5
   useEffect(() => {
     if (containerRef.current) {
       const sketch = createSketch(containerRef);

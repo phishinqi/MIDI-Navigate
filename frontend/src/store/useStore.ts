@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { SoundFontAdapter } from '../utils/SoundFontAdapter';
 
 interface StoreState {
   isZenMode: boolean;
@@ -83,6 +84,8 @@ interface StoreState {
   setIsRecording: (val: boolean) => void;
   p5Instance: any | null;
   setP5Instance: (instance: any | null) => void;
+  threeInstance: any | null;
+  setThreeInstance: (instance: any | null) => void;
   // SoundFont
   isSoundFontLoaded: boolean;
   loadSoundFont: (file: File) => Promise<void>;
@@ -101,7 +104,7 @@ const getDrumTrackIndices = (tracks: any[]) => {
 const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
-      // --- Visual Settings ---
+      // Visual Settings
       isZenMode: false,
       toggleZenMode: () => set((state) => ({ isZenMode: !state.isZenMode })),
 
@@ -121,7 +124,7 @@ const useStore = create<StoreState>()(
       isGlowEnabled: true,
       toggleGlow: () => set(s => ({ isGlowEnabled: !s.isGlowEnabled })),
 
-      // --- Track Color Settings ---
+      // Track Color Settings
       trackColors: {},
       useDefaultTrackColors: true,
       setTrackColor: (trackIndex, color) => set((state) => ({
@@ -130,7 +133,7 @@ const useStore = create<StoreState>()(
       resetTrackColors: () => set({ trackColors: {}, useDefaultTrackColors: true }),
       setUseDefaultTrackColors: (value) => set({ useDefaultTrackColors: value }),
 
-      // --- P5 Settings ---
+      // P5 Settings
       p5Settings: {
         showCursor: true,
         shrinkSpeed: 0.08,
@@ -150,6 +153,16 @@ const useStore = create<StoreState>()(
           { name: 'Linear', curve: [0.0, 0.0, 1.0, 1.0], isDefault: true },
           { name: 'Elastic Bounce', curve: [0.34, 1.56, 0.64, 1], isDefault: true },
         ],
+        jitter: {
+          enabled: false,
+          mode: 'emotion' as 'emotion' | 'density',
+          threshold: 10,
+          intensity: 0.5,
+          speed: 0.5,
+          decay: 0,
+          axisSpread: 0,
+          smoothness: 1
+        },
       },
       setP5Settings: (settings) => set((state) => ({
         p5Settings: { ...state.p5Settings, ...settings }
@@ -182,7 +195,7 @@ const useStore = create<StoreState>()(
       },
 
 
-      // --- Percussion Grid Settings (整合版) ---
+      // Percussion Grid Settings
       percussionSettings: {
         enabled: true,
         rows: 4,
@@ -224,16 +237,36 @@ const useStore = create<StoreState>()(
         return { percussionSettings: newSettings };
       }),
 
-      // --- View Settings ---
+      // View Settings
       viewSettings: {
-        zoomX: 50,
+        zoomX: 20,
         zoomY: 1.0,
         laneHeight: 1.5,
         enableClickToSeek: true,
-        followCursor: true,
+        followCursor: false,
+        showCursor: NaN,
+        loop: false,
         playheadOffset: 0.2,
         showPlayhead: true,
         showBarLines: true,
+        jitter: {
+          enabled: false,
+          mode: 'emotion' as 'emotion' | 'density',
+          threshold: 10,
+          intensity: 0.5,
+          speed: 0.5,
+          decay: 0,
+          axisSpread: 0,
+          smoothness: 1
+        },
+        bounce: {
+          enabled: true,
+          intensity: 0.5,
+          speed: 0.5,
+          decay: 0,
+          axisSpread: 0,
+          smoothness: 1
+        },
       },
       setViewSettings: (newSettings) => set((state) => ({
         viewSettings: { ...state.viewSettings, ...newSettings }
@@ -254,7 +287,7 @@ const useStore = create<StoreState>()(
       chordAnalysisEngine: 'legacy',
       setChordAnalysisEngine: (engine) => set({ chordAnalysisEngine: engine }),
 
-      // --- Data State ---
+      // Data State
       incomingMidiEvent: null,
       setIncomingMidiEvent: (event) => set({ incomingMidiEvent: event }),
       rawFile: null,
@@ -271,7 +304,7 @@ const useStore = create<StoreState>()(
         return { mutedTrackIndices: next };
       }),
 
-      // --- Playback State ---
+      // Playback State
       isPlaying: false,
       currentTime: 0,
       duration: 0,
@@ -309,6 +342,8 @@ const useStore = create<StoreState>()(
       setIsRecording: (val) => set({ isRecording: val }),
       p5Instance: null,
       setP5Instance: (instance) => set({ p5Instance: instance }),
+      threeInstance: null,
+      setThreeInstance: (instance: any) => set({ threeInstance: instance }),
 
       setMidiData: (data, file) => {
         const { percussionSettings } = get();
@@ -376,12 +411,12 @@ const useStore = create<StoreState>()(
         mutedTrackIndices: []
       }),
 
-      // --- SoundFont ---
+      // SoundFont
       isSoundFontLoaded: false,
       loadSoundFont: async (file: File) => {
         try {
           const buffer = await file.arrayBuffer();
-          const result = await import('../utils/SoundFontAdapter').then(m => m.SoundFontAdapter.load(buffer));
+          const result = await SoundFontAdapter.load(buffer);
           if (result) {
             set({ isSoundFontLoaded: true });
           }
@@ -392,10 +427,8 @@ const useStore = create<StoreState>()(
       resetSoundFont: () => {
         // Verify import exists or just reset state? 
         // Ideally clear adapter too.
-        import('../utils/SoundFontAdapter').then(m => {
-          m.SoundFontAdapter.sf = null;
-          m.SoundFontAdapter.cachedBuffers.clear();
-        });
+        SoundFontAdapter.sf = null;
+        SoundFontAdapter.cachedBuffers.clear();
         set({ isSoundFontLoaded: false });
       },
     }),
@@ -422,12 +455,26 @@ const useStore = create<StoreState>()(
         trackColors: state.trackColors,
         useDefaultTrackColors: state.useDefaultTrackColors,
       }),
-      version: 10, // Version bumped for track colors
+      version: 11, // Version bumped for bounce and threshold
       migrate: (persistedState, version) => {
-        if (version < 10) {
-          return {};
+        if (version < 10) return {};
+
+        let state = persistedState as any;
+        if (version < 11) {
+          // Add defaults for new features
+          const defaultJitter = { enabled: false, mode: 'emotion' as 'emotion' | 'density', threshold: 10, intensity: 0.5, speed: 0.5, decay: 0, axisSpread: 0, smoothness: 1 };
+          const defaultBounce = { enabled: true, intensity: 0.5, speed: 0.5 };
+
+          if (state.p5Settings) {
+            state.p5Settings.jitter = { ...defaultJitter, ...state.p5Settings.jitter };
+            state.p5Settings.bounce = { ...defaultBounce };
+          }
+          if (state.viewSettings) {
+            state.viewSettings.jitter = { ...defaultJitter, ...state.viewSettings.jitter };
+            state.viewSettings.bounce = { ...defaultBounce };
+          }
         }
-        return persistedState;
+        return state;
       },
     }
   )

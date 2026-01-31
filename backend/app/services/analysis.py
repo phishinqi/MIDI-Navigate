@@ -23,13 +23,13 @@ warnings.filterwarnings("ignore")
 
 class ChordAnalyzer:
     def __init__(self):
-        # 预定义音名列表，用于手动转换 MIDI
+        # Predefined note names for manual MIDI conversion
         self.NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
     def _midi_to_note_name(self, midi_number: int) -> str:
         """
-        手动将 MIDI 数字转换为音名 (e.g. 60 -> C4)
-        不依赖 musicpy.database，避免版本兼容性问题
+        Manually convert MIDI number to note name (e.g. 60 -> C4)
+        Avoids dependency on musicpy.database to prevent version compatibility issues
         """
         try:
             octave = (midi_number // 12) - 1
@@ -41,7 +41,7 @@ class ChordAnalyzer:
 
     def analyze_realtime(self, notes: List[NoteInput]) -> ChordResponse:
         """
-        增强版实时分析：包含旋律剥离与多重命名逻辑
+        Enhanced Real-time Analysis: Includes Melody Peeling and Multi-naming logic
         """
         if not notes or len(notes) < 2:
             return ChordResponse(
@@ -50,14 +50,14 @@ class ChordAnalyzer:
             )
 
         try:
-            # 1. 预处理：按音高排序 (低 -> 高)
+            # 1. Preprocessing: Sort by pitch (Low -> High)
             sorted_notes = sorted(notes, key=lambda n: n.pitch)
             note_names_all = [self._midi_to_note_name(n.pitch) for n in sorted_notes]
 
-            # 内部检测辅助函数
+            # Internal detection helper
             def run_detect(n_names):
                 if not n_names: return None
-                # 使用 musicpy 的核心 detect 算法
+                # Use musicpy's core detect algorithm
                 try:
                     return mp.alg.detect(
                         mp.chord(n_names),
@@ -70,20 +70,20 @@ class ChordAnalyzer:
                     logger.warning(f"Musicpy detect failed for {n_names}: {e}")
                     return None
 
-            # 2. 策略 A: 完整检测 (Full Detection)
+            # 2. Strategy A: Full Detection
             res_full = run_detect(note_names_all)
 
-            # 3. 策略 B: 旋律剥离 (Melody Peeling)
+            # 3. Strategy B: Melody Peeling
             res_peeled = None
             note_names_peeled = []
 
-            # 只有当音符数量足够时才尝试剥离 (至少3个音，剥离后剩2个)
+            # Only attempt peeling if there are enough notes (at least 3, leaving 2 after peeling)
             if len(sorted_notes) >= 3:
-                # 去除最高的一个音
+                # Remove the highest note
                 note_names_peeled = note_names_all[:-1]
                 res_peeled = run_detect(note_names_peeled)
 
-            # 4. 结果择优 (Selection Heuristic)
+            # 4. Selection Heuristic
             final_res = res_full
             used_notes = note_names_all
             is_peeled = False
@@ -91,20 +91,20 @@ class ChordAnalyzer:
             str_full = str(res_full) if res_full else ""
             str_peeled = str(res_peeled) if res_peeled else ""
 
-            # 简单启发式：
-            # 如果完整结果包含 "polychord" 或者字符串很长，
-            # 而剥离后的结果更简洁，则倾向于认为是带旋律的和弦，采用剥离结果。
+            # Simple Heuristic:
+            # If full detection yields "polychord" or a very long string,
+            # and the peeled result is simpler, favor the peeled result (assuming melody + chord).
             if str_peeled and len(str_peeled) > 0:
                 is_complex_full = "poly" in str_full.lower() or len(str_full) > 15
                 is_simple_peeled = "poly" not in str_peeled.lower() and len(str_peeled) < 10
 
-                # 如果 Full 检测失败 (None/Empty) 而 Peeled 成功，也使用 Peeled
+                # If Full detection fails (None/Empty) but Peeled succeeds, use Peeled
                 if (not str_full) or (is_complex_full and is_simple_peeled):
                     final_res = res_peeled
                     used_notes = note_names_peeled
                     is_peeled = True
 
-            # 5. 解析多重命名 (Aliases)
+            # 5. Parse Aliases
             raw_result_str = str(final_res) if final_res else ""
             aliases = [s.strip() for s in raw_result_str.replace('\r', '\n').split('\n') if s.strip()]
 
@@ -114,7 +114,7 @@ class ChordAnalyzer:
             else:
                 primary_name = aliases[0]
 
-            # 6. 提取 Root 和 Quality
+            # 6. Extract Root and Quality
             root = used_notes[0][:-1] if used_notes else "C"
             if len(primary_name) > 1 and primary_name[1] in ['#', 'b']:
                 root = primary_name[:2]
@@ -144,18 +144,18 @@ class ChordAnalyzer:
 
         except Exception as e:
             logger.error(f"Realtime analysis error: {e}")
-            # 返回一个安全值而不是抛出 500
+            # Return a safe value instead of throwing 500
             return ChordResponse(root="", quality="", name="Error", aliases=[], notes=[], type_code="error",
                                  confidence=0.0)
 
 
-# 实例化单例
+# Instantiate Singleton
 analyzer = ChordAnalyzer()
 
 # ==========================================
 # PART 2: Legacy Global Analysis (Preserved)
 # ==========================================
-# 以下代码完全保留，用于 MIDI 文件上传时的全局 Key/Timeline 分析
+# The following code is preserved for Global Key/Timeline Analysis during MIDI file upload
 
 TEMP_MAJOR = np.array([5.0, 2.0, 3.5, 2.0, 4.5, 4.0, 2.0, 4.5, 2.0, 3.5, 1.5, 4.0])
 TEMP_MINOR = np.array([5.0, 2.0, 3.5, 4.5, 2.0, 4.0, 2.0, 4.5, 3.5, 2.0, 1.5, 4.0])

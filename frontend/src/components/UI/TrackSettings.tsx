@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import useStore from '@/store/useStore';
 import { Settings, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next'; // 引入 i18n
+import { useTranslation } from 'react-i18next';
 
 import MixerTab from './SettingsTabs/MixerTab';
 import AudioTab from './SettingsTabs/AudioTab';
@@ -16,10 +16,10 @@ interface TrackSettingsProps {
 }
 
 const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
-  const { t } = useTranslation(); // 初始化 Hook
+  const { t } = useTranslation();
   const midiData = useStore(state => state.midiData);
 
-  // 如果没有 MIDI 数据，默认显示 'interface' 标签页
+  // If no MIDI data, default to 'interface' tab
   const [activeTab, setActiveTab] = useState(midiData ? 'mixer' : 'interface');
 
   const modalBg = 'bg-[#121212] border-white/10 text-white'; // Removed backdrop-blur for performance
@@ -30,7 +30,7 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
   const renderContent = () => {
     switch (activeTab) {
       case 'mixer':
-        // 保护 MixerTab，如果没有 MIDI 数据，显示翻译后的提示信息
+        // Protect MixerTab, show translated hint if no MIDI
         return midiData ? <MixerTab /> : (
           <div className="flex items-center justify-center h-64 text-white/30 italic">
             {t('settings.no_midi_mixer', { defaultValue: 'No MIDI loaded. Mixer controls are disabled.' })}
@@ -45,7 +45,7 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
     }
   };
 
-  // 定义标签页列表
+  // Tab List
   const tabs = ['mixer', 'audio', 'interface', 'grid', 'debug', 'help'];
 
   return (
@@ -57,7 +57,7 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
           <div className="flex justify-between items-center p-5 pb-2">
             <div className="flex items-center gap-2 text-midi-accent">
               <Settings size={18} />
-              {/* 标题翻译 */}
+              {/* Title Translation */}
               <span className="font-sans tabular-nums font-bold text-lg">
                 {t('settings.title', { defaultValue: 'Control Panel' })}
               </span>
@@ -71,7 +71,7 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
                 onClick={() => setActiveTab(tab)}
                 className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-all uppercase whitespace-nowrap ${activeTab === tab ? activeTabClass : `border-transparent ${inactiveTabClass}`}`}
               >
-                {/* 标签名翻译：settings.sections.mixer 等 */}
+                {/* Tab Name Translation */}
                 {t(`settings.sections.${tab}`, { defaultValue: tab })}
               </button>
             ))}

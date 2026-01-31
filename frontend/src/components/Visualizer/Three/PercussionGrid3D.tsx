@@ -28,7 +28,7 @@ const PercussionGrid3D = () => {
         if (!midiData) return [];
         let drumNotes = [];
 
-        // 筛选所有打击乐轨道
+        // Filter all percussion tracks
         midiData.tracks.forEach((t) => {
             const name = (t.name || "").toLowerCase();
             const inst = t.instrument || {};
@@ -45,13 +45,13 @@ const PercussionGrid3D = () => {
         if (drumNotes.length === 0) return [];
         drumNotes.sort((a, b) => a.time - b.time);
 
-        // 获取 BPM 和 拍号信息
+        // Get BPM and Time Signature
         const tempos = midiData.header.tempos || [];
         const signatures = midiData.header.timeSignatures || [];
         const defaultBpm = tempos.length > 0 ? tempos[0].bpm : 120;
         const defaultSig = signatures.length > 0 ? signatures[0].timeSignature : [4, 4];
 
-        // 辅助函数：Tick 转 Seconds
+        // Helper: Tick to Seconds
         const getSecondsAtTick = (tick) => {
             if (tempos.length === 0) return tick * (60 / (120 * 480));
             let time = 0; let lastTick = 0; let lastBpm = tempos[0].bpm;
@@ -70,14 +70,14 @@ const PercussionGrid3D = () => {
         const bars = [];
         const duration = midiData.duration || 0;
 
-        // 简单的防止死循环
+        // Prevent infinite loop
         if ((60 / defaultBpm) * defaultSig[0] <= 0) return [];
 
         let currentTick = 0;
         let barIndex = 0;
         let safetyLoop = 0;
 
-        // 分割小节
+        // Split Bars
         while (safetyLoop < 3000) {
             let currentSig = defaultSig;
             for (let i = signatures.length - 1; i >= 0; i--) {
@@ -93,14 +93,14 @@ const PercussionGrid3D = () => {
 
             if (start > duration + 1) break;
 
-            // 获取当前小节内的音符并量化合并
+            // Quantize and merge notes within the bar
             const rawNotes = drumNotes.filter(n => n.time >= start && n.time < end);
             const steps = [];
             if (rawNotes.length > 0) {
                 let currentStep = { time: rawNotes[0].time, notes: [rawNotes[0]] };
                 for (let k = 1; k < rawNotes.length; k++) {
                     const note = rawNotes[k];
-                    if (note.time - currentStep.time < 0.035) { // 35ms 内视为同时触发
+                    if (note.time - currentStep.time < 0.035) { // 35ms threshold
                         currentStep.notes.push(note);
                     } else {
                         steps.push(currentStep);
@@ -109,7 +109,7 @@ const PercussionGrid3D = () => {
                 }
                 steps.push(currentStep);
             }
-            // 确保每个步骤里的音符按音高排序（为了视觉一致性）
+            // Sort notes in each step by pitch
             steps.forEach(step => step.notes.sort((a, b) => a.midi - b.midi));
 
             bars.push({ start, end, index: barIndex, steps });
@@ -121,7 +121,7 @@ const PercussionGrid3D = () => {
     useLayoutEffect(() => {
         if (!enabled) return;
 
-        // 计算自适应缩放和中心位置
+        // Calculate adaptive scaling and center position
         const desiredWidth = cols * cellSize + (cols - 1) * spacing;
         const safeAreaWidth = viewport.width * 0.9;
         let scaleFactor = 1;
@@ -134,7 +134,7 @@ const PercussionGrid3D = () => {
         const totalWidth = cols * effectiveCellSize + (cols - 1) * effectiveSpacing;
         const totalHeight = rows * effectiveCellSize + (rows - 1) * effectiveSpacing;
 
-        // 垂直位置计算
+        // Vertical position calculation
         const sliderMin = -15; const sliderMax = 10;
         const normalizedY = (positionY - sliderMin) / (sliderMax - sliderMin);
         const paddingY = 0.5;
@@ -142,13 +142,13 @@ const PercussionGrid3D = () => {
         const maxY = viewport.height / 2 - totalHeight / 2 - paddingY;
         const finalGridCenterY = minY + normalizedY * Math.max(0, maxY - minY);
 
-        // 初始化两个 Mesh 的 Instance
+        // Initialize Mesh Instances
         [meshRef0, meshRef1].forEach(ref => {
             if (!ref.current) return;
             const count = rows * cols;
             const geometry = ref.current.geometry;
 
-            // 初始化属性 Attribute
+            // Initialize Attributes
             if (!geometry.getAttribute('colorA')) {
                 geometry.setAttribute('colorA', new THREE.InstancedBufferAttribute(new Float32Array(count * 3).fill(0), 3));
                 geometry.setAttribute('colorB', new THREE.InstancedBufferAttribute(new Float32Array(count * 3).fill(0), 3));
@@ -181,7 +181,7 @@ const PercussionGrid3D = () => {
     useFrame(() => {
         if (!enabled || !meshRef0.current || !meshRef1.current || barData.length === 0) return;
 
-        // 停止播放时重置
+        // Reset on stop
         if (!isPlaying && currentTime === 0) {
             lastBarIndex.current = -1;
             [meshRef0, meshRef1].forEach(ref => {
@@ -197,15 +197,14 @@ const PercussionGrid3D = () => {
             return;
         }
 
-        // 双缓冲逻辑：决定哪个是 Active，哪个是 Fading
+        // Double buffering logic: Active vs Fading
         const activeBar = barData.find(b => currentTime >= b.start && currentTime < b.end);
         const currentBarIndex = activeBar ? activeBar.index : -1;
         const activeMesh = (currentBarIndex % 2 === 0) ? meshRef0.current : meshRef1.current;
         const fadingMesh = (currentBarIndex % 2 === 0) ? meshRef1.current : meshRef0.current;
         const maxCells = rows * cols;
 
-        // --- 预计算每一帧的布局参数 (为了在循环中计算物理回弹位置) ---
-        // 注意：这里简单复用 LayoutEffect 的逻辑。在高性能场景下可以将这些值存为 ref
+        // --- Pre-calculate layout parameters per frame ---
         const desiredWidth = cols * cellSize + (cols - 1) * spacing;
         const safeAreaWidth = viewport.width * 0.9;
         const scaleFactor = desiredWidth > safeAreaWidth ? safeAreaWidth / desiredWidth : 1;
@@ -223,19 +222,19 @@ const PercussionGrid3D = () => {
         const maxY = viewport.height / 2 - totalHeight / 2 - paddingY;
         const finalGridCenterY = minY + normalizedY * Math.max(0, maxY - minY);
 
-        // --- 处理活跃网格 (Active Mesh) ---
+        // --- Process Active Mesh ---
         if (activeBar && activeMesh.geometry) {
             const { geometry } = activeMesh;
             const countAttr = geometry.getAttribute('count');
             const alphaAttr = geometry.getAttribute('instanceAlpha');
             const [cA, cB, cC, cD] = ['colorA', 'colorB', 'colorC', 'colorD'].map(n => geometry.getAttribute(n));
 
-            // 切换小节时重置状态
+            // Reset state on bar switch
             if (currentBarIndex !== lastBarIndex.current) {
                 for (let i = 0; i < maxCells; i++) {
                     countAttr.setX(i, 0);
                     alphaAttr.setX(i, 0);
-                    // 重置矩阵到初始状态 (必须，否则上一轮缩放的格子会卡住)
+                    // Reset matrix to initial state
                     const r = Math.floor(i / cols);
                     const c = i % cols;
                     const visualRow = rows - 1 - r;
@@ -253,7 +252,7 @@ const PercussionGrid3D = () => {
                 lastBarIndex.current = currentBarIndex;
             }
 
-            // 计算当前所有步进
+            // Calculate active steps
             const activeStepsCount = activeBar.steps.filter(s => s.time <= currentTime).length;
             const cellStates = new Array(maxCells).fill(null);
             for (let k = 0; k < activeStepsCount; k++) {
@@ -266,7 +265,7 @@ const PercussionGrid3D = () => {
             for (let i = 0; i < maxCells; i++) {
                 const step = cellStates[i];
 
-                // 计算基础物理位置
+                // Calculate base physics position
                 const r = Math.floor(i / cols);
                 const c = i % cols;
                 const visualRow = rows - 1 - r;
@@ -276,17 +275,17 @@ const PercussionGrid3D = () => {
                 if (step) {
                     const age = currentTime - step.time;
 
-                    // 1. 设置乐器数量 (Count)
+                    // 1. Set Instrument Count
                     if (countAttr.getX(i) !== Math.min(step.notes.length, 4)) {
                         countAttr.setX(i, Math.min(step.notes.length, 4));
                         countAttr.needsUpdate = true;
                     }
 
-                    // 2. 物理动画 (Matrix Physics)
-                    // 指数衰减 Punch: 触发瞬间 1.0 -> 随时间迅速归零
+                    // 2. Physics Animation (Punch)
+                    // Exponential decay punch
                     const punch = Math.exp(-age * 12);
-                    const scaleAnim = 1.0 + punch * 0.4; // 瞬间放大 1.4倍
-                    const zAnim = punch * 0.5; // 向前突出
+                    const scaleAnim = 1.0 + punch * 0.4; // Scale up 1.4x instantaneously
+                    const zAnim = punch * 0.5; // Pop forward
 
                     tempObject.position.set(baseX, baseY + finalGridCenterY, positionZ + zAnim);
                     tempObject.scale.set(effectiveCellSize * scaleAnim, effectiveCellSize * scaleAnim, 1);
@@ -294,20 +293,20 @@ const PercussionGrid3D = () => {
                     activeMesh.setMatrixAt(i, tempObject.matrix);
                     matrixNeedsUpdate = true;
 
-                    // 3. 颜色动画 (Color Heat)
+                    // 3. Color Animation (Heat)
                     const slots = [cA, cB, cC, cD];
                     for (let k = 0; k < 4; k++) {
                         if (k < step.notes.length) {
                             const baseColorHex = getDrumVisuals(step.notes[k].midi).color;
                             tempColor.set(baseColorHex);
 
-                            // 颜色热量衰减：前 0.12秒 混合白色
+                            // Heat decay: flash white for first 0.12s
                             if (age < 0.12) {
                                 const flashAmt = 1.0 - (age / 0.12);
                                 tempColor.lerp(flashColor, flashAmt);
                             }
 
-                            // 简单的脏检查，减少 GPU 总线压力
+                            // Simple dirty check
                             if (Math.abs(slots[k].getX(i) - tempColor.r) > 0.001) {
                                 slots[k].setXYZ(i, tempColor.r, tempColor.g, tempColor.b);
                                 colorNeedsUpdate = true;
@@ -322,7 +321,7 @@ const PercussionGrid3D = () => {
                     }
 
                 } else {
-                    // 未激活的格子：不做矩阵更新，以节省性能 (除非你需要它们有呼吸效果)
+                    // Inactive cells: skip matrix update to save performance
                     if (countAttr.getX(i) !== 0) {
                         countAttr.setX(i, 0);
                         countAttr.needsUpdate = true;
@@ -334,7 +333,7 @@ const PercussionGrid3D = () => {
             if (colorNeedsUpdate) [cA, cB, cC, cD].forEach(a => a.needsUpdate = true);
         }
 
-        // --- 处理淡出网格 (Fading Mesh) ---
+        // --- Process Fading Mesh ---
         if (fadingMesh?.geometry) {
             const alphaAttr = fadingMesh.geometry.getAttribute('instanceAlpha');
             const countAttr = fadingMesh.geometry.getAttribute('count');
@@ -346,16 +345,16 @@ const PercussionGrid3D = () => {
                 for (let i = 0; i < maxCells; i++) {
                     let alpha = alphaAttr.getX(i);
                     if (alpha > 0) {
-                        // 每一帧减少透明度
+                        // Fade out opacity
                         alpha = Math.max(0, alpha - 0.08);
                         alphaAttr.setX(i, alpha);
 
-                        // 消失特效：缩小并略微后退
+                        // Disappear effect: shrink and retreat
                         fadingMesh.getMatrixAt(i, tempObject.matrix);
                         tempObject.matrix.decompose(tempObject.position, tempObject.quaternion, tempObject.scale);
 
-                        tempObject.scale.multiplyScalar(0.92); // 缩小
-                        tempObject.position.z -= 0.02; // 后退
+                        tempObject.scale.multiplyScalar(0.92); // Shrink
+                        tempObject.position.z -= 0.02; // Retreat
 
                         tempObject.updateMatrix();
                         fadingMesh.setMatrixAt(i, tempObject.matrix);
@@ -383,7 +382,7 @@ const PercussionGrid3D = () => {
         <>
             <instancedMesh key={`${meshKey}-0`} ref={meshRef0} args={[null, null, rows * cols]} frustumCulled={false}>
                 <planeGeometry args={[1, 1]} />
-                {/* 传递 Uniforms 控制 Shader 效果 */}
+                {/* Pass Uniforms */}
                 <primitive
                     object={GridSliceMaterial}
                     attach="material"

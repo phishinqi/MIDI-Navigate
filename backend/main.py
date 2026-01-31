@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.api import endpoints
 
 
-# --- 1. 路径与配置 ---
+# --- 1. Paths & Configuration ---
 def get_resource_path(relative_path):
     if getattr(sys, 'frozen', False):
         base_path = os.path.dirname(sys.executable)
@@ -26,10 +26,10 @@ def get_resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-# 指向 dist 根目录
+# Point to dist root
 DIST_ROOT = get_resource_path("dist")
 
-# 预先定义好关键文件的绝对路径
+# Predefine absolute paths for key files
 PATH_ASSETS = os.path.join(DIST_ROOT, "assets")
 PATH_WS_DIR = os.path.join(DIST_ROOT, "ws")
 PATH_WS_HTML = os.path.join(PATH_WS_DIR, "index.html")
@@ -37,7 +37,7 @@ PATH_FRONTEND_HTML = os.path.join(DIST_ROOT, "frontend", "index.html")
 PATH_FAVICON = os.path.join(DIST_ROOT, "favicon.ico")
 
 
-# --- 2. WebSocket 管理器 ---
+# --- 2. WebSocket Manager ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -60,7 +60,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# --- 3. App 初始化 ---
+# --- 3. App Initialization ---
 app = FastAPI(title=settings.PROJECT_NAME)
 
 if settings.BACKEND_CORS_ORIGINS:
@@ -73,7 +73,7 @@ if settings.BACKEND_CORS_ORIGINS:
     )
 
 
-# --- 4. WebSocket 路由 ---
+# --- 4. WebSocket Routes ---
 @app.websocket("/ws/midi")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -87,12 +87,12 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
-# --- 5. API 路由 ---
+# --- 5. API Routes ---
 app.include_router(endpoints.router, prefix=settings.API_V1_STR)
 
-# --- 6. 静态文件与前端托管 [终极修正版] ---
+# --- 6. Static Files & Frontend Hosting [Final Fix] ---
 
-# 启动时打印调试信息 (方便在控制台确认路径)
+# Print debug info at startup (to verify paths in console)
 print("-" * 50)
 print(f"Path Check:")
 print(f"Root: {DIST_ROOT}")
@@ -102,19 +102,19 @@ print(f"Main HTML: {PATH_FRONTEND_HTML} -> {os.path.exists(PATH_FRONTEND_HTML)}"
 print("-" * 50)
 
 if os.path.exists(DIST_ROOT):
-    # A. 挂载公共资源 /assets (优先级最高)
+    # A. Mount public assets /assets (Highest priority)
     if os.path.exists(PATH_ASSETS):
         app.mount("/assets", StaticFiles(directory=PATH_ASSETS), name="assets")
 
 
-    # B. [WS 界面] 显式处理
-    # 1. 访问 /ws/index.html 时，重定向到 /ws (规范 URL)
+    # B. [WS Interface] Explicit Handling
+    # 1. Redirect /ws/index.html to /ws (Canonical URL)
     @app.get("/ws/index.html")
     async def redirect_ws():
         return RedirectResponse(url="/ws")
 
 
-    # 2. 访问 /ws 或 /ws/ 时，直接返回 HTML 文件
+    # 2. Serve HTML directly for /ws or /ws/
     @app.get("/ws")
     @app.get("/ws/")
     async def read_ws_page():
@@ -123,7 +123,7 @@ if os.path.exists(DIST_ROOT):
         return "Error: dist/ws/index.html missing", 404
 
 
-    # C. [主界面] 显式处理
+    # C. [Main Interface] Explicit Handling
     @app.get("/")
     async def read_index():
         if os.path.exists(PATH_FRONTEND_HTML):
@@ -139,16 +139,16 @@ if os.path.exists(DIST_ROOT):
         return None, 404
 
 
-    # E. 404 兜底 (SPA 路由支持)
+    # E. 404 Fallback (SPA Routing Support)
     @app.exception_handler(404)
     async def not_found_handler(request, exc):
         path = request.url.path
 
-        # 排除 API, WS, Assets，防止它们被错误地重定向到主页
+        # Exclude API, WS, Assets to prevent them from being incorrectly redirected to home
         if path.startswith(("/api", "/ws", "/assets")):
-            return None  # 返回真正的 404
+            return None  # Return real 404
 
-        # 其他未知路径认为是前端路由，返回主页
+        # Treat other unknown paths as frontend routes, return home
         if os.path.exists(PATH_FRONTEND_HTML):
             return FileResponse(PATH_FRONTEND_HTML)
         return None
@@ -156,18 +156,18 @@ if os.path.exists(DIST_ROOT):
 else:
     print("WARNING: 'dist' folder not found. Running in API-only mode.")
 
-# --- 7. 启动逻辑 (含 colorama 和 WebSocket 修复) ---
+# --- 7. Startup Logic (includes colorama and WebSocket fix) ---
 if __name__ == "__main__":
 
-    # 初始化颜色
+    # Initialize colorama
     colorama.init(autoreset=True)
 
-    # [已修改] 移除文件日志配置，仅保留基础配置（默认输出到控制台/stderr）
-    # 这样就不会在文件夹里生成 server_debug.log 了
+    # [Modified] Removed file logging config, keeping only basic config (stdout/stderr)
+    # This prevents generating server_debug.log in the folder
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
-    # stdout 重定向处理 (防止无控制台模式报错)
+    # stdout redirection (prevents errors in no-console mode)
     if sys.stdout is None: sys.stdout = open(os.devnull, "w")
     if sys.stderr is None: sys.stderr = open(os.devnull, "w")
 
@@ -181,10 +181,10 @@ if __name__ == "__main__":
         print(f"Main App: {url}")
         print(f"WS Test:  {ws_url}")
 
-        # 启动 uvicorn
+        # Start uvicorn
         uvicorn.run(app, host=host, port=port, log_level="info", reload=False, use_colors=True)
 
     except Exception as e:
-        # 如果崩溃，仅在控制台打印错误，不再写文件
+        # If crash occurs, print error to console only, do not write to file
         logging.error(f"Crash: {str(e)}", exc_info=True)
         print(f"Crash: {str(e)}")

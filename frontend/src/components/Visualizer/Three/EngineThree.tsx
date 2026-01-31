@@ -39,22 +39,23 @@ const EngineThree = () => {
   }, [isPlaying, midiData, setCurrentTime]);
 
   const isLight = isLightColor(backgroundColor);
+  const composerRef = useRef<any>(null);
 
   return (
     <div className="absolute inset-0 z-0">
       <Canvas
         orthographic
         camera={{ zoom: 40, position: [0, 0, 100] }}
-        gl={{ antialias: false, powerPreference: "high-performance" }}
+        gl={{ antialias: false, powerPreference: "high-performance", alpha: true, preserveDrawingBuffer: true }}
         dpr={[1, 2]}
       >
         <color attach="background" args={[backgroundColor]} />
 
-        <MidiScene />
+        <MidiScene composerRef={composerRef} />
         <PercussionGrid3D />
 
         {!isLight && (
-          <EffectComposer enableNormalPass={false}>
+          <EffectComposer ref={composerRef} enableNormalPass={false}>
             <Bloom
               luminanceThreshold={0.2}
               mipmapBlur

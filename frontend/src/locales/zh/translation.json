@@ -156,7 +156,22 @@
     "horizontal_scale": "水平缩放",
     "note_thickness": "音符厚度",
     "show_playhead": "显示播放线",
-    "show_background_grid": "显示背景网格"
+    "show_background_grid": "显示背景网格",
+    "screen_shake": {
+      "title": "画面抖动（情绪驱动）",
+      "enable": "启用抖动",
+      "mode": "算法模式",
+      "mode_emotion": "情绪驱动",
+      "mode_density": "密度驱动",
+      "threshold": "音符阈值",
+      "emotion_hint": "多维度：密度+和声+音高+力度",
+      "density_hint": "简单：活跃音符数量",
+      "intensity": "强度",
+      "speed": "频率",
+      "decay": "衰减",
+      "axis_spread": "轴向随机",
+      "smoothness": "平滑度"
+    }
   },
   "render_engine": {
     "title": "渲染引擎"
@@ -178,6 +193,8 @@
     "resolution": "分辨率",
     "fps": "帧率 (FPS)",
     "bitrate": "码率 (Mbps)",
+    "background": "背景",
+    "transparent_bg": "透明背景",
     "start": "开始导出",
     "processing": "处理中",
     "initializing": "初始化...",
@@ -198,7 +215,8 @@
     "realtime_render": "实时录制",
     "realtime_render_desc": "实时播放并录制，支持外部MIDI",
     "no_audio": "无音频",
-    "no_audio_desc": "仅导出视频，稍后添加音频"
+    "no_audio_desc": "仅导出视频，稍后添加音频",
+    "video_transparency_hint": "视频模式暂不支持透明导出，请使用序列帧模式"
   },
   "three_settings": {
     "title": "可视化设置 (Three.js)",
@@ -209,7 +227,27 @@
       "follow_playhead": "跟随播放线",
       "show_playhead": "显示播放线",
       "show_bar_lines": "显示小节线",
-      "click_to_seek": "点击定位"
+      "click_to_seek": "点击定位",
+      "enable_jitter": "启用抖动"
+    },
+    "screen_shake": {
+      "mode": "算法模式",
+      "mode_emotion": "情绪驱动",
+      "mode_density": "密度驱动",
+      "threshold": "音符阈值",
+      "intensity": "强度",
+      "speed": "频率",
+      "decay": "衰减",
+      "axis_spread": "轴向随机",
+      "smoothness": "平滑度"
+    },
+    "note_bounce": {
+      "title": "活跃音符跳动",
+      "intensity": "强度",
+      "speed": "频率",
+      "decay": "衰减",
+      "axis_spread": "轴向随机",
+      "smoothness": "平滑度"
     }
   },
   "visuals": {

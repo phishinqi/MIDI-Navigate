@@ -2,7 +2,7 @@
 import * as PIXI from 'pixi.js';
 import { gsap } from "gsap";
 import { PixiPlugin } from "gsap/PixiPlugin";
-import type { PercussionHit } from './types';
+
 
 gsap.registerPlugin(PixiPlugin);
 PixiPlugin.registerPIXI(PIXI);
@@ -72,7 +72,7 @@ export class PercussionGrid {
         this.container.addChild(this.graphics);
         app.stage.addChild(this.container);
 
-        // 状态
+        // State
         this.steps = [];
         this.stepCounter = 0;
 
@@ -88,7 +88,7 @@ export class PercussionGrid {
         const timeDiff = now - this.lastHitTime;
         let targetStep: PercStep;
 
-        // 如果两次击打时间极短，视为同一个时间步（例如底鼓和踩镲同时响）
+        // If two hits are very close, treat as same step (e.g. Kick + Hat)
         if (timeDiff < this.groupingThreshold && this.steps.length > 0) {
             targetStep = this.steps[this.steps.length - 1];
             if (!targetStep.types.includes(type)) {
@@ -96,7 +96,7 @@ export class PercussionGrid {
                 targetStep.velocity = Math.max(targetStep.velocity, velocity / 127);
             }
         } else {
-            // 创建新的时间步
+            // Create new step
             targetStep = {
                 types: [type],
                 velocity: velocity / 127,
@@ -108,13 +108,13 @@ export class PercussionGrid {
             this.lastHitTime = now;
         }
 
-        // 1. 先清理该对象上可能存在的旧动画（防止快速连击时的冲突）
+        // 1. Kill old tweens to prevent conflict
         gsap.killTweensOf(targetStep);
 
-        // 2. 重置能量为 1.0
+        // 2. Reset Energy
         targetStep.energy = 1.0;
 
-        // 3. 开始衰减动画
+        // 3. Start Decay
         gsap.to(targetStep, {
             energy: 0,
             duration: 0.6,
@@ -124,7 +124,7 @@ export class PercussionGrid {
             }
         });
 
-        // 限制最大步数，防止极端情况下的内存溢出
+        // Limit max steps to prevent memory overflow
         if (this.steps.length > 64) {
             const removed = this.steps.shift();
             if (removed) {
@@ -133,7 +133,7 @@ export class PercussionGrid {
         }
     }
 
-    update(timeInSeconds: number, settings: SettingsWithGet): void {
+    update(_timeInSeconds: number, settings: SettingsWithGet): void {
         const g = this.graphics;
         g.clear();
 

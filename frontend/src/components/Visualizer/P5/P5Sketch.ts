@@ -8,7 +8,7 @@ import {
 import { drawPercussionGrid } from './PercussionGridP5';
 
 export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (p: p5) => {
-  // --- Runtime State ---
+  // Runtime State
   let measureMap = [];
   let manualTime: number | null = null; // For offline rendering
 
@@ -20,17 +20,17 @@ export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (
   let cachedDrumSteps = [];
 
   // Logic Flags
-  let cachedPageIndex = -2; // 替换原有的 cachedBarIndex
-  let lastPageIndex = -1;   // 替换原有的 lastBarIndex
+  let cachedPageIndex = -2;
+  let lastPageIndex = -1;
 
   let lastMidiData = null;
   let lastVisibleTracksRef = null;
   let lastPercussionEnabledRef = null;
-  let lastMeasuresPerPage = -1; // 记录配置以便检测更改
-  let lastTrackColors = null; // 记录轨道颜色
-  let lastUseDefaultTrackColors = true; // 记录是否使用默认颜色
+  let lastMeasuresPerPage = -1;
+  let lastTrackColors = null;
+  let lastUseDefaultTrackColors = true;
 
-  // 记录翻页时间与上一小节时长
+  // Page turn timing
   let transitionStartTime = 0;
 
   p.setup = () => {
@@ -87,58 +87,49 @@ export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (
       lastPercussionEnabledRef = null;
     }
 
-    // --- 3. Timing Calculation (Multi-Measure Page Logic) ---
+    // Timing Calculation (Multi-Measure Page Logic)
     const audioTime = manualTime !== null ? manualTime : Tone.Transport.seconds;
 
-    // 获取当前处于哪一个具体的小节
     const actualActiveMeasure = getBarInfoAtTime(measureMap, audioTime) || (measureMap.length > 0 ? measureMap[0] : { index: 0, startTime: 0, duration: 2, endTime: 2 });
-
-    // 获取用户设置的每页小节数 (默认为1)
     const measuresPerPage = Math.max(1, p5Settings.measuresPerPage || 1);
-
-    // 计算当前"页码"
     const currentPageIndex = Math.floor(actualActiveMeasure.index / measuresPerPage);
 
-    // 计算该页面的起始小节和结束小节索引
     const startMeasureIndex = currentPageIndex * measuresPerPage;
     const endMeasureIndex = Math.min(startMeasureIndex + measuresPerPage, measureMap.length);
 
-    // 计算整个页面的时间窗口
-    // 页面的 startTime 是该页第一个小节的 startTime
+    // Page window calculation
     const pageStartTime = measureMap[startMeasureIndex] ? measureMap[startMeasureIndex].startTime : 0;
-
-    // 页面的 endTime 是该页最后一个小节的 endTime
-    // 注意：如果是最后一页，小节数可能少于 measuresPerPage，所以要用实际存在的最后一个小节
     const lastMeasureOfPage = measureMap[endMeasureIndex - 1];
     const pageEndTime = lastMeasureOfPage ? lastMeasureOfPage.endTime : pageStartTime + 2;
     const pageDuration = pageEndTime - pageStartTime;
 
-    // 构造一个"虚拟"的 Measure 对象，欺骗渲染函数，让它们认为这是一个巨大的小节
+    // "Virtual" Measure for rendering
     const activePageWindow = {
-      index: currentPageIndex, // 逻辑索引改为页码
+      index: currentPageIndex,
       startTime: pageStartTime,
       endTime: pageEndTime,
       duration: pageDuration,
-      // 保留元数据
       realStartBar: startMeasureIndex,
       realEndBar: endMeasureIndex
     };
 
-    // 计算页面内的进度 (0.0 - 1.0)
     const barProgress = (audioTime - activePageWindow.startTime) / activePageWindow.duration;
 
 
     // 4. Background
-    drawBackground(p, backgroundColor, p5Settings);
+    if ((p as any).transparentBackground) {
+      p.clear();
+    } else {
+      drawBackground(p, backgroundColor, p5Settings);
+    }
 
     // --- State Update Logic ---
 
-    // A. 翻页检测 (基于 Page Index 而非 Bar Index)
+    // A. Page Turn Detection (based on Page Index)
     if (currentPageIndex !== lastPageIndex) {
       if (lastPageIndex !== -1 && currentPageIndex === lastPageIndex + 1) {
         cachedNotesPrev = [...cachedNotesCurrent];
         cachedNotesPrev.forEach((n: any) => n.shrinkScale = 1.0);
-        // 重要：传递上一页的总时长，保证消失动画速率正确
         (cachedNotesPrev as any).prevBarDuration = activePageWindow.duration;
         transitionStartTime = audioTime;
       } else {
@@ -147,14 +138,13 @@ export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (
       lastPageIndex = currentPageIndex;
     }
 
-    // B. 加载新数据 (Cache Update)
+    // B. Cache Update
     const isVisibilityChanged = visibleTrackIndices !== lastVisibleTracksRef;
     const isPercussionToggled = percussionSettings?.enabled !== lastPercussionEnabledRef;
     const isSettingsChanged = measuresPerPage !== lastMeasuresPerPage;
     const isColorChanged = trackColors !== lastTrackColors || useDefaultTrackColors !== lastUseDefaultTrackColors;
 
     if (currentPageIndex !== cachedPageIndex || isVisibilityChanged || isPercussionToggled || isSettingsChanged || isColorChanged) {
-      // cacheNotesForBar 现在会获取整个时间窗口(activePageWindow)内的所有音符
       cachedNotesCurrent = cacheNotesForBar(
         p,
         midiData,
@@ -175,7 +165,7 @@ export const createSketch = (containerRef: React.RefObject<HTMLDivElement>) => (
       lastUseDefaultTrackColors = useDefaultTrackColors;
     }
 
-    // --- Render Layers ---
+    // Render Layers
 
     // Layer A: Percussion Grid
     drawPercussionGrid(p, cachedDrumSteps, audioTime, percussionSettings, backgroundColor);

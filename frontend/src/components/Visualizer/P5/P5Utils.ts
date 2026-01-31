@@ -71,8 +71,7 @@ export const CONFIG = {
   }
 } as const;
 
-// NOTE: 颜色系统已统一使用 lib/utils.js 中的 getTrackColor
-// 保留此函数仅用于向后兼容
+// Use updated color system from utils
 import { getTrackColor as getTrackColorFromUtils } from '@/lib/utils';
 
 export const getTrackHue = (index: number) => {
@@ -166,9 +165,7 @@ export const getBarInfoAtTime = (measures: any[], time: number) => {
   return measures[measures.length - 1];
 };
 
-// =================================================================
-// MODIFIED: cacheNotesForBar now has special "greedy" logic for meteor mode.
-// =================================================================
+// Cache notes for current measure (Meteor mode uses greedy selection)
 export const cacheNotesForBar = (p: p5, midi: any, measure: any, settings: any, visibleTracks: any, percussionSettings: any, trackColors: any = {}, useDefaultColors = true) => {
   const notes = [];
   if (!measure) return notes;
@@ -189,7 +186,7 @@ export const cacheNotesForBar = (p: p5, midi: any, measure: any, settings: any, 
       inst.percussion === true || (track.channel === 9 || track.channel === 10);
     if (percussionSettings?.enabled && isDrum) return;
 
-    // 使用统一的颜色获取函数
+    // Unified color retrieval
     const colorHex = getTrackColorFromUtils(tIdx, trackColors, useDefaultColors);
     p.colorMode(p.RGB);
     const col = p.color(colorHex);
@@ -198,13 +195,13 @@ export const cacheNotesForBar = (p: p5, midi: any, measure: any, settings: any, 
     track.notes.forEach(n => {
       let overlaps = false;
       if (mode === 'meteor') {
-        // "Greedy" logic for meteor: check if the note's *entire lifecycle* overlaps with the current measure.
+        // Greedy logic: check if note's lifecycle overlaps with measure
         const holdDuration = settings.meteorHoldTime || 0.5;
         const fadeDuration = settings.meteorFadeTime || 1.5;
         const noteLifecycleEnd = n.time + holdDuration + fadeDuration;
         overlaps = (n.time < barEnd) && (noteLifecycleEnd > barStart);
       } else {
-        // Original logic for wipe and fade modes.
+        // Standard overlap logic
         const buffer = 0.1;
         overlaps = (n.time < barEnd + buffer) && (n.time + n.duration > barStart - buffer);
       }
@@ -285,17 +282,15 @@ export const drawBackground = (p: p5, bgColor: any, settings: any) => {
   p.line(0, p.height / 2, p.width, p.height / 2);
 };
 
-// =================================================================
-// FINAL: Animation logic for 'meteor' mode based on individual lifecycle.
-// =================================================================
+// Meteor mode animation logic
 const getMeteorShrinkProgress = (note: any, audioTime: number, settings: any, fadeCurve: number[]) => {
   const curve = fadeCurve || [0.42, 0, 1, 1];
   const fadeEaser = createBezier(curve[0], curve[1], curve[2], curve[3]);
   const holdDuration = settings.meteorHoldTime || 0.5;
   const baseFadeDuration = settings.meteorFadeTime || 1.5;
 
-  // [FIX] 让消逝时长与音符长度成比例，避免长音符消失太快
-  // 音符越长，给予更长的消逝时间（最小为baseFadeDuration，最大为音符时长的1.5倍）
+  // Scale fade duration with note length
+  // Longer notes fade slower (min: baseFadeDuration, max: 1.5x note duration)
   const noteDuration = note.ratioW * note.measureDuration;
   const scaledFadeDuration = Math.max(baseFadeDuration, Math.min(noteDuration * 1.5, baseFadeDuration * 3));
 
@@ -322,63 +317,217 @@ export const drawNotes = (p: p5, notes: any[], audioTime: number, settings: any,
     const measureDuration = notes[0]?.measureDuration || 4.0;
     const playheadRatio = (audioTime - measureStart) / measureDuration;
 
-    // 1. 获取用户定义的开始时间，如果没有设置则默认为 0.45
-    // 你可以在 settings 中添加一个 'fadeStartRatio' 字段
+    // 1. Get fade start ratio (default 0.45)
     const FADE_START_RATIO = settings?.fadeStartRatio ?? 0.45;
 
     if (playheadRatio > FADE_START_RATIO) {
       const shrinkSetting = settings?.shrinkSpeed || 0.08;
       const speedFactor = shrinkSetting * 20.0;
 
-      // 计算从开始点到小节结束的线性进度 (0.0 -> 1.0)
+      // Calculate linear progress (0.0 -> 1.0) from fade start to measure end
       const linearP = (playheadRatio - FADE_START_RATIO) / (1.0 - FADE_START_RATIO);
 
-      // 2. 使用 fadeCurve 生成缓动函数
-      // 如果 settings.fadeCurve 不存在，使用默认的较陡峭的曲线 [0.6, 0.05, 0.9, 0.9] 模拟之前的 pow(4) 效果
+      // 2. Generate Easing
+      // Default curve: [0.6, 0.05, 0.9, 0.9]
       const fadeCurve = settings?.fadeCurve || [0.6, 0.05, 0.9, 0.9];
       const fadeEaser = createBezier(fadeCurve[0], fadeCurve[1], fadeCurve[2], fadeCurve[3]);
 
-      // 3. 应用曲线
+      // 3. Apply easing curve
       const easedP = fadeEaser(linearP);
 
       const maxPossibleCut = speedFactor * 0.5;
       globalClipRatio = easedP * maxPossibleCut;
     }
   }
+  // Screen Shake System
+  const jitter = settings?.jitter;
+  let globalShakeY = 0;
 
+  if (jitter?.enabled) {
+    const mode = (jitter as any).mode || 'emotion';
+    // Collect active notes
+    const activeNotes: any[] = [];
+    for (const note of notes) {
+      const noteEnd = note.time + (note.ratioW * note.measureDuration);
+      if (audioTime >= note.time && audioTime < noteEnd) {
+        activeNotes.push(note);
+      }
+    }
+
+    let triggerValue = 0;
+
+    // Algorithm 1: Emotion-Driven (Multi-Dimensional)
+    if (mode === 'emotion') {
+      let emotionFactors = {
+        density: 0,
+        velocity: 0,
+        pitch: 0,
+        tension: 0,
+        rhythmic: 0
+      };
+
+      if (activeNotes.length > 0) {
+        // A. Density Factor (Logarithmic)
+        emotionFactors.density = Math.min(1.0, Math.log(activeNotes.length + 1) / Math.log(16));
+
+        // B. Velocity Factor (Max 70% + Avg 30%)
+        const velocities = activeNotes.map((n: any) => n.velocity || 64);
+        const maxVel = Math.max(...velocities);
+        const avgVel = velocities.reduce((a, b) => a + b, 0) / velocities.length;
+        // Use squared function to increase contrast
+        emotionFactors.velocity = Math.pow((maxVel * 0.7 + avgVel * 0.3) / 127, 2);
+
+        // C. Pitch Extremes Factor
+        const centerDistances = activeNotes.map(n => {
+          const midi = (n as any).midi || Math.round(n.normPitch * 88 + 21);
+          // Distance from C4 (60), normalized to approx 40 semitones
+          return Math.min(1.0, Math.abs(midi - 60) / 40);
+        });
+        emotionFactors.pitch = centerDistances.reduce((sum, d) => sum + d, 0) / activeNotes.length;
+
+        // D. Harmonic Tension Factor
+        if (activeNotes.length >= 2) {
+          let totalTension = 0;
+          let pairCount = 0;
+          // Limit calculation to first 10 notes for performance
+          const notesToCheck = activeNotes.slice(0, 10);
+          for (let i = 0; i < notesToCheck.length; i++) {
+            for (let j = i + 1; j < notesToCheck.length; j++) {
+              const midi1 = (notesToCheck[i] as any).midi || Math.round(notesToCheck[i].normPitch * 88 + 21);
+              const midi2 = (notesToCheck[j] as any).midi || Math.round(notesToCheck[j].normPitch * 88 + 21);
+              const interval = Math.abs(midi1 - midi2) % 12;
+              const tensionMap: { [key: number]: number } = {
+                0: 0.0, 1: 1.0, 2: 0.4, 3: 0.2, 4: 0.1, 5: 0.3,
+                6: 0.8, 7: 0.0, 8: 0.2, 9: 0.1, 10: 0.4, 11: 0.9
+              };
+              totalTension += tensionMap[interval] || 0;
+              pairCount++;
+            }
+          }
+          emotionFactors.tension = pairCount > 0 ? totalTension / pairCount : 0;
+        }
+
+        // Bass Drop / Impact Boost
+        const hasLowEndImpact = maxVel > 100 && activeNotes.some((n: any) => ((n as any).midi || Math.round(n.normPitch * 88 + 21)) < 45);
+        if (hasLowEndImpact) {
+          // Instant impact boost applied later
+        }
+
+        // Emotion Weights
+        const weights = {
+          density: 0.20,
+          velocity: 0.30,
+          pitch: 0.20,
+          tension: 0.30,
+          rhythmic: 0.0
+        };
+
+        let rawEmotion =
+          emotionFactors.density * weights.density +
+          emotionFactors.velocity * weights.velocity +
+          emotionFactors.pitch * weights.pitch +
+          emotionFactors.tension * weights.tension;
+
+        // Apply Bass Drop Boost (Max 1.2x)
+        if (hasLowEndImpact) {
+          rawEmotion = Math.min(1.0, rawEmotion * 1.5); // 50% boost for bass drops
+        }
+
+        // Smoothing
+        const smoothingFactor = 0.15;
+        if (!(jitter as any)._prevEmotion) {
+          (jitter as any)._prevEmotion = rawEmotion;
+        }
+        const smoothedEmotion = (jitter as any)._prevEmotion * (1 - smoothingFactor) + rawEmotion * smoothingFactor;
+        (jitter as any)._prevEmotion = smoothedEmotion;
+
+        triggerValue = smoothedEmotion;
+      }
+    }
+    // Algorithm 2: Density-Driven (Simple Note Count)
+    // ============================================================
+    else {
+      const density = activeNotes.length;
+      triggerValue = Math.min(1.0, density / 20); // 20 notes = max value
+    }
+
+    // Common Trigger Logic
+    // Common Trigger Logic
+    const threshold = jitter.threshold !== undefined ? jitter.threshold : 10;
+
+    if (activeNotes.length > threshold) {
+      // Calculate intensity based on mode
+      let intensityFactor = 0;
+
+      if (mode === 'emotion') {
+        intensityFactor = Math.min(1.0, triggerValue);
+      } else {
+        // Density Mode: Ratio of notes above threshold
+        const maxNotes = 50;
+        intensityFactor = Math.min(1.0, (activeNotes.length - threshold) / (maxNotes - threshold));
+      }
+
+      const speed = (jitter.speed || 0.5) * 40;
+      const baseAmp = (jitter.intensity || 0.5) * 6;
+
+      // Jitter amplitude increases with intensity
+      const finalAmp = baseAmp * (0.2 + Math.sqrt(intensityFactor) * 0.8);
+      globalShakeY = Math.sin(audioTime * speed) * finalAmp;
+    }
+  }
+
+  // Render Notes (Three-Phase Pipeline)
   for (let n of notes) {
-    if (audioTime >= n.time) {
-      const age = audioTime - n.time;
-      const noteDurationInSeconds = n.ratioW * n.measureDuration;
-      const growthProgress = (noteDurationInSeconds > 0.01) ? Math.min(1.0, age / noteDurationInSeconds) : 1.0;
-      const easedProgress = midlifePlateauEase(growthProgress);
+    // Phase 1: Time-based Rendering & Lifecycle
+    if (audioTime < n.time) continue; // Note hasn't started yet
 
-      const originalStartRatio = n.ratioX;
-      const currentEndRatio = originalStartRatio + (n.ratioW * easedProgress);
-      let visibleStartRatio = originalStartRatio;
+    const age = audioTime - n.time;
+    const noteDurationInSeconds = n.ratioW * n.measureDuration;
 
-      if (mode === 'fade') {
-        visibleStartRatio = Math.max(originalStartRatio, globalClipRatio);
-      } else if (mode === 'meteor') {
-        const shrinkProgress = getMeteorShrinkProgress(n, audioTime, settings, settings.fadeCurve);
-        visibleStartRatio = originalStartRatio + (n.ratioW * shrinkProgress);
-      }
-
-      // This clipping is now essential for the greedy caching in meteor mode
-      const finalVisibleStart = Math.max(0, visibleStartRatio);
-      const finalVisibleEnd = Math.min(1, currentEndRatio);
-
-      if (finalVisibleStart >= finalVisibleEnd) continue;
-
-      const x = leftMargin + (finalVisibleStart * effectiveWidth);
-      const w = (finalVisibleEnd - finalVisibleStart) * effectiveWidth;
-      const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
-      const h = noteH;
-
-      if (w > 0) {
-        p.fill(n.color);
-        p.rect(x, y, w, h);
-      }
+    // Define timeline boundaries
+    const GROWTH_DURATION = settings?.noteGrowthTime || 0.2;
+    const growthEnd = n.time + GROWTH_DURATION;
+    const playEnd = n.time + noteDurationInSeconds;
+    // Phase 2: Independent Parameter Calculation
+    // (Growth Scale, Bounce Offset)
+    // A. Calculate growth scale (0 → 1)
+    let scaleX = 1.0;
+    if (audioTime < growthEnd) {
+      // During growth phase
+      const growthProgress = age / GROWTH_DURATION;
+      scaleX = midlifePlateauEase(Math.min(1.0, growthProgress));
+    }
+    // After growth: scaleX stays at 1.0
+    // Phase 3: Dimensional Calculation (Width & Clipping)
+    const baseStartRatio = n.ratioX;
+    const baseWidthRatio = n.ratioW;
+    // Apply growth scale to width
+    const scaledWidthRatio = baseWidthRatio * scaleX;
+    const scaledEndRatio = baseStartRatio + scaledWidthRatio;
+    // Apply page-turn mode clipping
+    let visibleStartRatio = baseStartRatio;
+    let visibleEndRatio = scaledEndRatio;
+    if (mode === 'fade') {
+      visibleStartRatio = Math.max(baseStartRatio, globalClipRatio);
+    } else if (mode === 'meteor') {
+      const shrinkProgress = getMeteorShrinkProgress(n, audioTime, settings, settings.fadeCurve);
+      visibleStartRatio = baseStartRatio + (baseWidthRatio * shrinkProgress);
+    }
+    // Clamp to valid range
+    const finalVisibleStart = Math.max(0, Math.min(1, visibleStartRatio));
+    const finalVisibleEnd = Math.max(0, Math.min(1, visibleEndRatio));
+    // Skip if no visible width
+    if (finalVisibleStart >= finalVisibleEnd) continue;
+    // Convert to pixels
+    const x = leftMargin + (finalVisibleStart * effectiveWidth);
+    const w = (finalVisibleEnd - finalVisibleStart) * effectiveWidth;
+    const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
+    const h = noteH;
+    // Phase 4: Final Rendering
+    const renderW = Math.max(w, 1); // Minimum width for visibility
+    if (renderW > 0) {
+      p.fill(n.color);
+      p.rect(x, y + globalShakeY, renderW, h);
     }
   }
 };
@@ -393,28 +542,25 @@ export const drawPreviousNotes = (p: p5, notes: any, audioTime: number, settings
   let allNotesGone = true;
 
   if (mode === 'meteor') {
-    // 'meteor' 模式的动画依赖于全局播放时间 audioTime
+    // 'meteor' mode depends on global audioTime
     if (audioTime === undefined) return true;
 
     for (let n of notes) {
       const holdDuration = settings.meteorHoldTime || 0.5;
       const baseFadeDuration = settings.meteorFadeTime || 1.5;
 
-      // 使用与getMeteorShrinkProgress相同的缩放逻辑
-      const noteDuration = n.ratioW * n.measureDuration;
-      const scaledFadeDuration = Math.max(baseFadeDuration, Math.min(noteDuration * 1.5, baseFadeDuration * 3));
+      // Use same logic as getMeteorShrinkProgress
+      // Skip if note's lifecycle is over
+      const noteEnd = n.end ?? (n.measureDuration ? n.time + (n.ratioW * n.measureDuration) : (n.startTime + n.duration));
+      if (audioTime > noteEnd + 3.0) continue;
 
-      // 如果音符的整个生命周期已经结束，则跳过
-      if (audioTime > n.time + holdDuration + scaledFadeDuration) {
-        continue;
-      }
-      allNotesGone = false; // 只要有一个音符还在，就不能算全部消失
+      allNotesGone = false;
 
-      // 只绘制那些已经开始的音符
+      // Draw only notes that have started
       if (audioTime >= n.time) {
         const shrinkProgress = getMeteorShrinkProgress(n, audioTime, settings, settings.fadeCurve);
 
-        // 对于来自前一个小节的音符，我们视其已完成生长，只处理收缩动画
+        // For previous notes, assume fully grown, only handle shrink
         const growthProgress = 1.0;
         const originalStartRatio = n.ratioX;
         const currentEndRatio = originalStartRatio + (n.ratioW * growthProgress);
@@ -456,7 +602,6 @@ export const drawPreviousNotes = (p: p5, notes: any, audioTime: number, settings
           const startX = leftMargin + (visibleStart * effectiveWidth);
           const w = (visibleEnd - visibleStart) * effectiveWidth;
           const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
-          p.fill(n.color);
           if (w > 0) p.rect(startX, y, w, noteH);
         }
       }
@@ -537,23 +682,22 @@ export const drawPreviousNotes = (p: p5, notes: any, audioTime: number, settings
       const noteStart = n.ratioX;
       const noteEnd = n.ratioX + n.ratioW;
 
-      // 如果音符结束位置在扫描线左侧，则无需绘制
+      // Skip if note ends before scanline
       if (noteEnd < wipeLine) continue;
 
       allNotesGone = false;
       p.fill(n.color);
 
-      // 计算可视的起始位置（被扫描线吃掉的部分）
+      // Calculate visible start (eaten by scanline)
       const visibleStart = Math.max(noteStart, wipeLine);
 
-      // [FIX] 关键修复：计算可视的结束位置（限制在页面右边界 1.0 以内）
-      // 防止音符绘制超出 effectiveWidth 区域
+      // [FIX] Calculate visible end (clamped to 1.0)
       const visibleEnd = Math.min(noteEnd, 1.0);
 
-      // 只有当 起始点 < 结束点 时才绘制（防止负宽度）
+      // Only draw if Start < End
       if (visibleStart < visibleEnd) {
         const startX = leftMargin + (visibleStart * effectiveWidth);
-        // 宽度计算使用修正后的 visibleEnd
+        // Calc width using visibleEnd
         const w = (visibleEnd - visibleStart) * effectiveWidth;
         const y = topMargin + effectiveHeight - (n.normPitch * effectiveHeight) - (noteH / 2);
 

@@ -13,8 +13,8 @@ class AnalysisRequest(BaseModel):
 class ChordResponse(BaseModel):
     root: str
     quality: str
-    name: str          # 主要名称 (e.g. "C Maj7")
-    aliases: List[str] # [NEW] 别名列表，包含 Musicpy 的所有推断
+    name: str          # Primary Name (e.g. "C Maj7")
+    aliases: List[str] # [NEW] List of aliases, containing all musicpy inferences
     notes: List[str]
     type_code: str
     confidence: float = 1.0
@@ -23,7 +23,7 @@ class AnalysisResponse(BaseModel):
     chord: ChordResponse
     timestamp: float
 
-# 保持原有文件分析的响应结构兼容性
+# Maintain compatibility with existing file analysis response structure
 class FileAnalysisResponse(BaseModel):
     filename: str
     basic_stats: dict

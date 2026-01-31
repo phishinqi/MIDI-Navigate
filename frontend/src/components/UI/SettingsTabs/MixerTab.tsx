@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import useStore from '@/store/useStore';
 import { Eye, EyeOff, Check, Music, Volume2, VolumeX, Loader2 } from 'lucide-react';
-import { audioEngine } from '@/audio/AudioEngine';
+import { getAudioEngine } from '@/audio/AudioEngine';
 import { getTrackColorCSS, fixEncoding, getTrackColor } from '@/lib/utils';
 import { api } from '@/lib/api';
-import { useTranslation } from 'react-i18next'; // 1. 引入 useTranslation
+import { useTranslation } from 'react-i18next';
 
 const MixerTab = () => {
-  const { t } = useTranslation(); // 2. 初始化 Hook
+  const { t } = useTranslation();
   const midiData = useStore(state => state.midiData);
   const rawFile = useStore(state => state.rawFile);
   const analysisData = useStore(state => state.analysisData);
@@ -30,13 +30,13 @@ const MixerTab = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
-    audioEngine.updateTrackMuteState(mutedTrackIndices);
+    getAudioEngine().updateTrackMuteState(mutedTrackIndices);
   }, [mutedTrackIndices]);
 
   useEffect(() => {
     return () => {
       if (previewTrackIndex !== null) {
-        audioEngine.unmuteAll();
+        getAudioEngine().unmuteAll();
       }
     };
   }, [previewTrackIndex]);
@@ -44,13 +44,13 @@ const MixerTab = () => {
   const togglePreview = (e: React.MouseEvent, index: number) => {
     e.stopPropagation();
     if (previewTrackIndex === index) {
-      audioEngine.unmuteAll();
+      getAudioEngine().unmuteAll();
       setPreviewTrackIndex(null);
     } else {
-      audioEngine.soloTrack(index);
+      getAudioEngine().soloTrack(index);
       setPreviewTrackIndex(index);
       useStore.getState().setIsPlaying(true);
-      audioEngine.play();
+      getAudioEngine().play();
     }
   };
 
@@ -58,7 +58,7 @@ const MixerTab = () => {
     if (!rawFile) return;
     setIsAnalyzing(true);
     try {
-      audioEngine.unmuteAll();
+      getAudioEngine().unmuteAll();
       setPreviewTrackIndex(null);
       const data = await api.analyzeMidi(rawFile, analysisTrackIndices, analysisComplexity, analysisSensitivity);
       const currentData = useStore.getState().analysisData;

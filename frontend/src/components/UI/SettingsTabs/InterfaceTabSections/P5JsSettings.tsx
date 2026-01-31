@@ -1,6 +1,6 @@
 import React from 'react';
 import useStore from '@/store/useStore';
-import { ScanLine, Wind, Star, Sparkles, BrainCircuit, Hourglass, Timer, Maximize, ArrowUpDown, Scaling, AlignJustify, ArrowRight, Grid3X3, ArrowRightToLine, Ruler } from 'lucide-react';
+import { ScanLine, Wind, Star, Sparkles, BrainCircuit, Hourglass, Timer, Maximize, ArrowUpDown, Scaling, AlignJustify, ArrowRight, Grid3X3, ArrowRightToLine, Ruler, Activity, Waves } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
 import * as Switch from '@radix-ui/react-switch';
 import BezierCurveEditor from '../../Common/BezierCurveEditor';
@@ -152,6 +152,110 @@ const P5JsSettings = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Screen Shake (Global) */}
+                <div className="pt-2 border-t border-white/5 mt-3 space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold mb-2">
+                        <span className="flex items-center gap-1 opacity-80">
+                            <Waves size={14} />
+                            {t('p5_settings.screen_shake.title', { defaultValue: 'Screen Shake' })}
+                        </span>
+                        <Switch.Root
+                            className={`w-8 h-4 rounded-full relative transition-colors ${currentP5Settings.jitter?.enabled ? 'bg-midi-accent' : 'bg-white/10'}`}
+                            checked={currentP5Settings.jitter?.enabled || false}
+                            onCheckedChange={(c) => setP5Settings({ jitter: { ...currentP5Settings.jitter, enabled: c } })}
+                        >
+                            <Switch.Thumb className={`block w-3 h-3 bg-white rounded-full shadow transition-transform translate-x-0.5 ${currentP5Settings.jitter?.enabled ? 'translate-x-[18px]' : ''}`} />
+                        </Switch.Root>
+                    </div>
+
+                    {currentP5Settings.jitter?.enabled && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                            {/* 算法模式选择 */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                    <span className="opacity-60">{t('p5_settings.screen_shake.mode', { defaultValue: 'Algorithm Mode' })}</span>
+                                </div>
+                                <div className="flex bg-black/20 p-1 rounded-lg gap-1">
+                                    <button
+                                        className={`flex-1 flex items-center justify-center px-2 py-1.5 text-[10px] font-bold rounded-md transition-all whitespace-nowrap ${(currentP5Settings.jitter?.mode || 'emotion') === 'emotion'
+                                                ? 'bg-white text-black shadow-sm'
+                                                : 'text-zinc-400 hover:text-white'
+                                            }`}
+                                        onClick={() => setP5Settings({ jitter: { ...currentP5Settings.jitter, mode: 'emotion' } })}
+                                    >
+                                        <Activity className="w-3 h-3 mr-1.5" />
+                                        {t('p5_settings.screen_shake.mode_emotion', { defaultValue: 'Emotion' })}
+                                    </button>
+                                    <button
+                                        className={`flex-1 flex items-center justify-center px-2 py-1.5 text-[10px] font-bold rounded-md transition-all whitespace-nowrap ${currentP5Settings.jitter?.mode === 'density'
+                                                ? 'bg-white text-black shadow-sm'
+                                                : 'text-zinc-400 hover:text-white'
+                                            }`}
+                                        onClick={() => setP5Settings({ jitter: { ...currentP5Settings.jitter, mode: 'density' } })}
+                                    >
+                                        <Waves className="w-3 h-3 mr-1.5" />
+                                        {t('p5_settings.screen_shake.mode_density', { defaultValue: 'Density' })}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 音符阈值 */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                    <span className="opacity-60">{t('p5_settings.screen_shake.threshold', { defaultValue: 'Note Threshold' })}</span>
+                                    <span className="font-sans tabular-nums">{currentP5Settings.jitter?.threshold || 10}</span>
+                                </div>
+                                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.jitter?.threshold || 10]} min={1} max={50} step={1} onValueChange={(v) => setP5Settings({ jitter: { ...currentP5Settings.jitter, threshold: v[0] } })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                                <div className="text-[9px] opacity-40 mt-1">
+                                    {(currentP5Settings.jitter?.mode || 'emotion') === 'emotion'
+                                        ? t('p5_settings.screen_shake.emotion_hint', { defaultValue: 'Multi-factor: density, harmony, pitch, velocity' })
+                                        : t('p5_settings.screen_shake.density_hint', { defaultValue: 'Simple: active note count' })}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                    <span className="opacity-60">{t('p5_settings.screen_shake.intensity', { defaultValue: 'Intensity' })}</span>
+                                    <span className="font-sans tabular-nums">{(currentP5Settings.jitter?.intensity || 0.5).toFixed(2)}</span>
+                                </div>
+                                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.jitter?.intensity || 0.5]} min={0} max={2} step={0.05} onValueChange={(v) => setP5Settings({ jitter: { ...currentP5Settings.jitter, intensity: v[0] } })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                    <span className="opacity-60">{t('p5_settings.screen_shake.speed', { defaultValue: 'Frequency' })}</span>
+                                    <span className="font-sans tabular-nums">{(currentP5Settings.jitter?.speed || 0.5).toFixed(2)}</span>
+                                </div>
+                                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.jitter?.speed || 0.5]} min={0} max={2} step={0.05} onValueChange={(v) => setP5Settings({ jitter: { ...currentP5Settings.jitter, speed: v[0] } })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                    <span className="opacity-60">{t('p5_settings.screen_shake.decay', { defaultValue: 'Decay' })}</span>
+                                    <span className="font-sans tabular-nums">{(currentP5Settings.jitter?.decay || 0).toFixed(2)}</span>
+                                </div>
+                                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.jitter?.decay || 0]} min={0} max={1} step={0.05} onValueChange={(v) => setP5Settings({ jitter: { ...currentP5Settings.jitter, decay: v[0] } })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                    <span className="opacity-60">{t('p5_settings.screen_shake.axis_spread', { defaultValue: 'Axis Spread' })}</span>
+                                    <span className="font-sans tabular-nums">{(currentP5Settings.jitter?.axisSpread || 0).toFixed(2)}</span>
+                                </div>
+                                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.jitter?.axisSpread || 0]} min={0} max={1} step={0.05} onValueChange={(v) => setP5Settings({ jitter: { ...currentP5Settings.jitter, axisSpread: v[0] } })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-bold">
+                                    <span className="opacity-60">{t('p5_settings.screen_shake.smoothness', { defaultValue: 'Smoothness' })}</span>
+                                    <span className="font-sans tabular-nums">{(currentP5Settings.jitter?.smoothness !== undefined ? currentP5Settings.jitter.smoothness : 1).toFixed(2)}</span>
+                                </div>
+                                <Slider.Root className="relative flex items-center select-none touch-none w-full h-4" value={[currentP5Settings.jitter?.smoothness !== undefined ? currentP5Settings.jitter.smoothness : 1]} min={0} max={1} step={0.05} onValueChange={(v) => setP5Settings({ jitter: { ...currentP5Settings.jitter, smoothness: v[0] } })}><Slider.Track className="bg-white/10 relative grow rounded-full h-[3px]"><Slider.Range className="absolute bg-midi-accent h-full rounded-full" /></Slider.Track><Slider.Thumb className="block w-3 h-3 bg-white rounded-full shadow hover:scale-110 focus:outline-none" /></Slider.Root>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {/* 布局设置 (通用) */}
                 <div className="pt-2 border-t border-white/5 mt-2 space-y-3">

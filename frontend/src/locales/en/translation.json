@@ -151,7 +151,22 @@
     "horizontal_scale": "Horizontal Scale",
     "note_thickness": "Note Thickness",
     "show_playhead": "Show Playhead",
-    "show_background_grid": "Show Background Grid"
+    "show_background_grid": "Show Background Grid",
+    "screen_shake": {
+      "title": "Screen Shake (Emotion-Driven)",
+      "enable": "Enable Shake",
+      "mode": "Algorithm Mode",
+      "mode_emotion": "Emotion",
+      "mode_density": "Density",
+      "threshold": "Note Threshold",
+      "emotion_hint": "Multi-factor: density, harmony, pitch, velocity",
+      "density_hint": "Simple: active note count",
+      "intensity": "Intensity",
+      "speed": "Frequency",
+      "decay": "Decay",
+      "axis_spread": "Axis Spread",
+      "smoothness": "Smoothness"
+    }
   },
   "render_engine": {
     "title": "Render Engine"
@@ -173,6 +188,8 @@
     "resolution": "Resolution",
     "fps": "FPS",
     "bitrate": "Bitrate (Mbps)",
+    "background": "Background",
+    "transparent_bg": "Transparent Background",
     "start": "Start Export",
     "processing": "Processing",
     "initializing": "Initializing...",
@@ -193,7 +210,8 @@
     "realtime_render": "Realtime Recording",
     "realtime_render_desc": "Record in realtime, supports external MIDI",
     "no_audio": "No Audio",
-    "no_audio_desc": "Export video only, add audio later"
+    "no_audio_desc": "Export video only, add audio later",
+    "video_transparency_hint": "Video mode does not support transparent export, please use sequence frame mode"
   },
   "three_settings": {
     "title": "Viewport (Three.js)",
@@ -204,7 +222,27 @@
       "follow_playhead": "Follow Playhead",
       "show_playhead": "Show Playhead",
       "show_bar_lines": "Show Bar Lines",
-      "click_to_seek": "Click to Seek"
+      "click_to_seek": "Click to Seek",
+      "enable_jitter": "Enable Jitter"
+    },
+    "screen_shake": {
+      "mode": "Algorithm Mode",
+      "mode_emotion": "Emotion",
+      "mode_density": "Density",
+      "threshold": "Note Threshold",
+      "intensity": "Intensity",
+      "speed": "Frequency",
+      "decay": "Decay",
+      "axis_spread": "Axis Spread",
+      "smoothness": "Smoothness"
+    },
+    "note_bounce": {
+      "title": "Active Note Bounce",
+      "intensity": "Intensity",
+      "speed": "Frequency",
+      "decay": "Decay",
+      "axis_spread": "Axis Spread",
+      "smoothness": "Smoothness"
     }
   },
   "visuals": {

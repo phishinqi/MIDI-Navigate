@@ -63,9 +63,7 @@ export class SoundFontAdapter {
         const urls: Record<string, AudioBuffer> = {};
         const notesToCheck = notesOptional || Array.from({ length: 128 }, (_, i) => i);
 
-        // Bank Selection:
-        // Melodic: Bank 0 (Default)
-        // Percussion: Bank 128
+        // Bank Selection: Melodic=0, Percussion=128
         const bank = isPercussion ? 128 : 0;
 
         const processedRoots = new Set<string>();
@@ -79,13 +77,6 @@ export class SoundFontAdapter {
                 let rootKey = keyData.sample.header.originalPitch;
 
                 // Check for OverridingRootKey (Generator ID 58)
-                // keyData.generators is likely a plain object or map? 
-                // typings say ZoneMap<Generator>. ZoneMap is likely an object where keys are Generator IDs (numbers)
-                // Let's check safely.
-
-                // Note: soundfont2 ZoneMap implementation details:
-                // It seems to be an object where keys are generator IDs.
-                // We cast to any to safely access numeric keys.
                 const gens = keyData.generators as any;
 
                 if (gens && gens[58]) { // OverridingRootKey
@@ -97,65 +88,9 @@ export class SoundFontAdapter {
                 }
 
                 // Check for CoarseTune (51) - Semitone offset
-                // Note: This shifts the PITCH of the sample. 
-                // Tone.Sampler maps "Note" -> "Buffer".
-                // If Coarse Tune is +12, the sample sounds an octave higher than recorded.
-                // So effectively, its "Root Key" (the note it sounds like) is Original + 12.
-                // We should adjusting rootKey accordingly so Tone plays it at correct pitch for the mapped note.
-                // Wait. 
-                // If sample is C3. Coarse Tune +12. It sounds like C4.
-                // We map C4 -> Buffer. (rootKey = 60).
-                // When we play C4, Tone plays Buffer (C3 pitched up 12? No, Tone plays Buffer at rate 1).
-                // Buffer is raw C3. Tone playing at rate 1 sounds like C3. 
-                // ERROR: We need to tell Tone that this buffer IS C3, but we map it to C4?
-                // No.
-                // If "Root Key" is 60 (C4). We map "C4": Buffer.
-                // Tone.Sampler assumes the Buffer *IS* C4.
-                // If the Buffer is actually C3 (OriginalPitch=48), but the Instrument has CoarseTune=+12...
-                // The Buffer contains a C3 sound.
-                // We want to map it such that when we play C4, it plays C3+12.
-                // If we map "C3": Buffer.
-                // Play C4 -> Tone shifts C3 up 12 semitones -> Sounds like C4. Correct.
-
-                // So `rootKey` for Tone.Sampler URL map must be the **Pitch of the Audio Buffer itself** (OriginalPitch).
-                // The `CoarseTune` generator doesn't change the Buffer file. It changes how the synth SHOULD play it.
-                // But Tone.Sampler URL map is { "Note_Note_Buffer_Is_At": Buffer }.
-                // Tone automatically calculates playback rate: `rate = interval(urlNote, triggeredNote)`.
-
-                // If SF2 says: Sample is 60. Generator says CoarseTune +12.
-                // This means when I press key 60, play sample 60 + 12 semitones.
-                // Wait, CoarseTune usually means "Shift the headers pitch".
-                // If I press 60. standard is play 60. +12 means play 72.
-                // Sample 60 played as 72 sounds like 72.
-
-                // This is equivalent to saying the Sample's "Base Pitch" is effectively 60-12 = 48?
-                // If I map "C3" (48) -> Buffer (60).
-                // Play 60 (C4). Tone shifts C3 -> C4 (+12). Buffer (60) shifted +12 sounds like 72. Correct.
-                // So, effectiveRootKey = originalPitch - coarseTune.
-
-                // Let's apply CoarseTune (51) and FineTune (52).
+                // EffectiveBase = Base - CoarseTune to achieve correct pitch shifting in Tone.Sampler
                 let coarseTune = 0;
                 if (gens && gens[51]) coarseTune = gens[51].value || 0;
-
-                // Calculate Effective Root Key for Tone.Sampler
-                // This is the note that, when played at rate=1, matches the buffer's sound.
-                // Since Buffer is static, its pitch is `originalPitch`.
-                // However, we want to capture the `adjustment`.
-                // Tone.Sampler logic: Play(Note). Look up nearest Buffer(Base). Rate = distance(Base, Note).
-                // We want Play(Note) -> Play Buffer + CoarseTune.
-                // Rate should be `distance(Base, Note) + CoarseTune`.
-                // Tone doesn't support adding offset. It only supports `distance`.
-                // dist = Note - Base.
-                // We want dist_effective = (Note - Base) + CoarseTune.
-                // (Note - Base) + CoarseTune = Note - (Base - CoarseTune).
-                // So EffectiveBase = Base - CoarseTune.
-
-                // Example: Sample = 60. Tune = +12.
-                // Press 60. Want sound 72.
-                // Sampler plays Rate(60, Base).
-                // Rate should match +12 semitones.
-                // 60 - Base = 12 => Base = 48.
-                // So EffectiveBase = 60 - 12 = 48.
 
                 rootKey = rootKey - coarseTune;
 

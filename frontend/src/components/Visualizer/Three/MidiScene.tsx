@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import useStore from '../../../store/useStore.js';
 import { getTrackHue, isLightColor, getTrackColor, hexToRgb } from '../../../lib/utils.js';
-import { audioEngine } from '../../../audio/AudioEngine.js';
+import { getAudioEngine } from '../../../audio/AudioEngine.js';
 
 const tempObject = new THREE.Object3D();
 const tempColor = new THREE.Color();
@@ -50,7 +50,7 @@ function useGlowTexture() {
   }, []);
 }
 
-const MidiScene = () => {
+const MidiScene = ({ composerRef }: { composerRef?: React.MutableRefObject<any> }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const glowRef = useRef<THREE.InstancedMesh>(null);
   const barLinesRef = useRef<THREE.InstancedMesh>(null);
@@ -79,12 +79,12 @@ const MidiScene = () => {
   const glowTexture = useGlowTexture();
   const isLight = isLightColor(backgroundColor);
 
-  // 每次数据变化时，重置初始化标记
+  // Reset initialization flag on data change
   useEffect(() => {
     isInitialized.current = false;
   }, [midiData, zoomX, zoomY, laneHeightScale, trackColors, useDefaultTrackColors]);
 
-  // 1. Data Prep
+  // Data Prep
   const { count, instances } = useMemo(() => {
     if (!midiData) return { count: 0, instances: [] };
 
@@ -96,7 +96,7 @@ const MidiScene = () => {
     const keyHeight = baseKeyHeight * zoomY * laneHeightScale;
 
     midiData.tracks.forEach((track, tIdx) => {
-      // 使用统一的颜色工具函数
+      // Use unified color utility
       const colorHex = getTrackColor(tIdx, trackColors, useDefaultTrackColors);
       const rgb = hexToRgb(colorHex);
       const baseColor = new THREE.Color(rgb.r / 255, rgb.g / 255, rgb.b / 255);
@@ -125,7 +125,7 @@ const MidiScene = () => {
     return { count: data.length, instances: data };
   }, [midiData, viewport.height, zoomX, zoomY, laneHeightScale, trackColors, useDefaultTrackColors]);
 
-  // 2. Bar Lines
+  // Bar Lines
   const barLineData = useMemo(() => {
     if (!midiData || !showBarLines) return { count: 0, instances: [] };
     const ppq = midiData.header.ppq || 480;
@@ -182,8 +182,8 @@ const MidiScene = () => {
     return { count: bars.length, instances: bars };
   }, [midiData, showBarLines]);
 
-  // 3. Matrix Updates (Initial Setup)
-  // 这里的逻辑保持不变，但我们不再完全依赖它，因为 render loop 也会检查初始化
+  // Matrix Updates (Initial Setup)
+  // Logic remains, but render loop also checks initialization
   useLayoutEffect(() => {
     if (!meshRef.current || !glowRef.current || count === 0) return;
     updateAllMatrices();
@@ -203,7 +203,7 @@ const MidiScene = () => {
     barLinesRef.current.instanceMatrix.needsUpdate = true;
   }, [barLineData, zoomX, viewport.height]);
 
-  // 辅助：强制刷新所有矩阵
+  // Helper: Force update all matrices
   const updateAllMatrices = () => {
     if (!meshRef.current || !glowRef.current) return;
     instances.forEach((data, i) => {
@@ -224,8 +224,11 @@ const MidiScene = () => {
     glowRef.current.instanceMatrix.needsUpdate = true;
   };
 
-  // 4. Animation Loop
-  useFrame(() => {
+  // Animation Loop & Manual Render Logic
+  const setThreeInstance = useStore(state => state.setThreeInstance);
+  const { gl, scene, camera } = useThree();
+
+  const updateVisuals = (currentTime: number) => {
     if (!meshRef.current || !glowRef.current || !groupRef.current) return;
 
     if (!isInitialized.current && count > 0) {
@@ -233,7 +236,6 @@ const MidiScene = () => {
       isInitialized.current = true;
     }
 
-    const currentTime = useStore.getState().currentTime;
     const currentX = currentTime * zoomX;
 
     if (followCursor) {
@@ -257,7 +259,7 @@ const MidiScene = () => {
     for (let i = startIdx; i < endIdx; i++) {
       const data = instances[i];
 
-      // 可见性逻辑
+      // Visibility Logic
       if (!visibleTrackIndices.includes(data.trackIndex)) {
         meshRef.current.getMatrixAt(i, tempObject.matrix);
         tempObject.matrix.decompose(tempObject.position, tempObject.quaternion, tempObject.scale);
@@ -272,22 +274,97 @@ const MidiScene = () => {
         continue;
       }
 
-      // 恢复逻辑 (如果之前被隐藏了)
+      // Restoration Logic (if hidden previously) OR Jitter Update
       meshRef.current.getMatrixAt(i, tempObject.matrix);
       tempObject.matrix.decompose(tempObject.position, tempObject.quaternion, tempObject.scale);
 
-      if (tempObject.scale.x === 0) {
-        // [关键] 恢复时必须重新设置 Position，否则它会呆在 (0,0,0)
-        tempObject.position.set(data.x + data.w / 2, data.y, 0);
-        tempObject.scale.set(data.w, data.h, 1);
+      const jitter = viewSettings?.jitter;
+      const bounce = viewSettings?.bounce;
+
+      const calcPhysics3D = (time: number, cfg: any, isNote: boolean, seed: number) => {
+        if (!cfg) return { x: 0, y: 0, decay: 0 };
+        const freq = (cfg.speed || 0.5) * 40;
+        const amp = (cfg.intensity || 0.5) * 0.3; // Lower amp for ThreeJS scale
+        const smoothness = cfg.smoothness !== undefined ? cfg.smoothness : 1;
+        const spread = cfg.axisSpread || 0;
+        const decay = cfg.decay || 0;
+
+        const t = time * freq + seed;
+        const sineVal = Math.sin(t);
+        // Pseudo-noise: Chaotic sine mix
+        const noiseVal = Math.sin(t * 1.5 + 431) * Math.cos(t * 2.3 + 12);
+
+        let wave = (sineVal * smoothness) + (noiseVal * (1 - smoothness));
+        let offY = wave * amp;
+        let offX = 0;
+
+        if (spread > 0) {
+          const noiseX = Math.cos(t * 1.1 + 99) * Math.sin(t * 3.7);
+          offX = noiseX * amp * spread;
+        }
+        return { x: offX, y: offY, decay };
+      };
+
+      let globalShake = { x: 0, y: 0 };
+      // Global Shake Logic
+      if (jitter?.enabled) {
+        const threshold = jitter.threshold || 10;
+        let activeCnt = 0;
+        for (let k = startIdx; k < endIdx; k++) {
+          const d = instances[k];
+          if (currentTime >= d.time && currentTime < (d.time + d.duration)) activeCnt++;
+          if (activeCnt >= threshold) break;
+        }
+        if (activeCnt >= threshold) {
+          globalShake = calcPhysics3D(currentTime, jitter, false, 0);
+        }
+      }
+
+      let noteBounce = { x: 0, y: 0 };
+      const isNoteActive = currentTime >= data.time && currentTime < (data.time + data.duration);
+
+      // Note Bounce (Per Note)
+      if (bounce?.enabled && isNoteActive) {
+        const seed = (data.trackIndex * 100 + data.time * 1000) % 10000;
+        const res = calcPhysics3D(currentTime, bounce, true, seed);
+
+        if (res.decay > 0) {
+          const age = currentTime - data.time;
+          const decayFactor = res.decay * 5;
+          const env = Math.exp(-age * decayFactor);
+          res.x *= env;
+          res.y *= env;
+        }
+        noteBounce = res;
+      }
+
+      const globalShakeY = globalShake.y;
+      const isEffectActive = (jitter?.enabled) || (bounce?.enabled);
+
+      const lastEffectActive = (meshRef.current as any).userData?.lastEffectActive || false;
+      const needsEffectReset = lastEffectActive && !isEffectActive;
+      if (meshRef.current && i === startIdx) (meshRef.current as any).userData = { ...((meshRef.current as any).userData || {}), lastEffectActive: isEffectActive };
+
+
+      if (tempObject.scale.x === 0 || isEffectActive || needsEffectReset) {
+        // Critical: Reset position on restore
+        tempObject.position.set(data.x + data.w / 2 + globalShake.x + noteBounce.x, data.y + globalShake.y + noteBounce.y, 0);
+
+        // Reset scale only if freshly showing
+        if (tempObject.scale.x === 0) {
+          tempObject.scale.set(data.w, data.h, 1);
+        }
+
         tempObject.updateMatrix();
         meshRef.current.setMatrixAt(i, tempObject.matrix);
 
-        // 恢复 Glow
+        // Restore/Update Glow
         const glowPadding = 0.5 * data.velScale;
         const glowW = data.w + glowPadding;
         const glowH = data.h * 4.0 * data.velScale;
-        tempObject.position.z = -0.01;
+        // Glow always behind (-0.01)
+        tempObject.position.set(data.x + data.w / 2 + globalShake.x + noteBounce.x, data.y + globalShake.y + noteBounce.y, -0.01);
+
         tempObject.scale.set(glowW, glowH, 1);
         tempObject.updateMatrix();
         glowRef.current.setMatrixAt(i, tempObject.matrix);
@@ -295,7 +372,7 @@ const MidiScene = () => {
         needsMatrixUpdate = true;
       }
 
-      // 颜色逻辑
+      // Color Logic
       const isPlaying = currentTime >= data.time && currentTime < (data.time + data.duration);
       const isPast = (data.time + data.duration) < currentTime;
 
@@ -343,7 +420,37 @@ const MidiScene = () => {
       }
       barLinesRef.current.instanceColor.needsUpdate = true;
     }
+  };
+
+  useFrame(() => {
+    updateVisuals(useStore.getState().currentTime);
   });
+
+  // Expose to store for ExportManager
+  // Stabilize manualRender to avoid thrashing the store instance
+  const visualsProxyRef = useRef(updateVisuals);
+  useLayoutEffect(() => {
+    visualsProxyRef.current = updateVisuals;
+  });
+
+  // Expose to store for ExportManager
+  useEffect(() => {
+    setThreeInstance({
+      renderer: gl,
+      scene,
+      camera,
+      manualRender: (time: number) => {
+        if (visualsProxyRef.current) visualsProxyRef.current(time);
+
+        if (composerRef && composerRef.current) {
+          composerRef.current.render();
+        } else {
+          gl.render(scene, camera);
+        }
+      }
+    });
+    return () => setThreeInstance(null);
+  }, [gl, scene, camera, setThreeInstance, composerRef]);
 
   const handlePointerDown = (e: any) => {
     if (!enableClickToSeek || !midiData) return;
@@ -353,7 +460,7 @@ const MidiScene = () => {
       const localX = e.point.x - groupX;
       const targetTime = localX / zoomX;
       if (targetTime >= 0 && targetTime <= midiData.duration) {
-        audioEngine.seek(targetTime);
+        getAudioEngine().seek(targetTime);
         useStore.getState().setCurrentTime(targetTime);
       }
     }

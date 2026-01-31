@@ -140,8 +140,7 @@ class AudioEngine {
     this.resendProgramChanges();
 
     midiData.tracks.forEach((track, trackIndex) => {
-      // [FIX] Optimized CC Handling
-      // Consolidate ALL CC events for this track into ONE array
+      // Optimize CC Handling: Consolidate events for Tone.Part efficiency
       if (track.controlChanges) {
         const combinedCCs = [];
         Object.keys(track.controlChanges).forEach(ccKey => {
@@ -271,4 +270,15 @@ class AudioEngine {
   }
 }
 
-export const audioEngine = new AudioEngine();
+
+let instance = null;
+
+export const getAudioEngine = () => {
+  if (!instance) {
+    instance = new AudioEngine();
+  }
+  return instance;
+};
+
+// Singleton accessor
+

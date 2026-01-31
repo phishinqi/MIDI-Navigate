@@ -1,7 +1,7 @@
 // ws/types.ts
 import type * as PIXI from 'pixi.js';
 
-// 配置类型
+// Config Types
 export interface VisualizerConfig {
     // Basic
     scrollDirection: -1 | 1;
@@ -28,7 +28,7 @@ export interface VisualizerConfig {
     percSpacing: number;
 }
 
-// MIDI事件类型
+// MIDI Event Types
 export interface MidiEvent {
     type: 'note_on' | 'note_off';
     note: number;
@@ -36,7 +36,7 @@ export interface MidiEvent {
     channel: number;
 }
 
-// 和弦分析结果
+// Chord Analysis Result
 export interface ChordResult {
     name: string;
     root: number;
@@ -44,7 +44,7 @@ export interface ChordResult {
     notes: number[];
 }
 
-// 调性检测结果
+// Key Detection Result
 export interface KeyResult {
     root: number;
     type: 'Major' | 'Minor';
@@ -53,7 +53,7 @@ export interface KeyResult {
     confidence: number;
 }
 
-// 音阶定义
+// Scale Definitions
 export interface ScaleDefinition {
     intervals: number[];
     chordMap?: Record<number, string>;
@@ -61,10 +61,10 @@ export interface ScaleDefinition {
 
 export type Scales = Record<string, ScaleDefinition>;
 
-// Settings Manager回调类型
+// Settings Manager Callback Type
 export type ConfigChangeCallback = (key: keyof VisualizerConfig, value: any) => void;
 
-// 打击乐Hit类型
+// Percussion Hit Type
 export interface PercussionHit {
     sprite: PIXI.Graphics;
     time: number;

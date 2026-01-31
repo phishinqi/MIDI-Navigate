@@ -4,7 +4,7 @@ import * as Tone from 'tone';
 import { UploadCloud } from 'lucide-react';
 import useStore from '@/store/useStore';
 import { api } from '@/lib/api';
-import { useTranslation } from 'react-i18next'; // 1. 引入 useTranslation
+import { useTranslation } from 'react-i18next';
 
 interface FileUploadProps {
   inputId?: string;
@@ -15,7 +15,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ inputId, hidden }) => {
   const setMidiData = useStore((state) => state.setMidiData);
   const setAnalysisData = useStore((state) => state.setAnalysisData);
   const setIsAnalyzing = useStore((state) => state.setIsAnalyzing);
-  const { t } = useTranslation(); // 2. 初始化 Hook
+  const { t } = useTranslation();
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files[0];
@@ -49,7 +49,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ inputId, hidden }) => {
       setIsAnalyzing(false);
     }
 
-    // 重置 input，允许重复上传同一文件
+    // Reset input to allow re-uploading the same file
     e.target.value = '';
   }, [setMidiData, setAnalysisData, setIsAnalyzing]);
 
@@ -63,7 +63,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ inputId, hidden }) => {
       <div className="flex flex-col items-center space-y-4 text-midi-accent/70 group-hover:text-midi-accent transition-colors">
         <div className="p-4 rounded-full bg-midi-gray group-hover:bg-midi-gray/80"><UploadCloud className="w-8 h-8" /></div>
         <div className="text-center">
-          {/* 3. 使用 t 函数替换静态文本 */}
           <h3 className="text-lg font-medium">
             {t('controls.upload_prompt', { defaultValue: 'Drag MIDI here or click to upload' })}
           </h3>

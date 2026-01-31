@@ -1,8 +1,11 @@
 import * as Tone from 'tone';
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
+import * as THREE from 'three';
+import { Muxer, ArrayBufferTarget as Mp4ArrayBufferTarget } from 'mp4-muxer';
+import { Muxer as WebMMuxer, ArrayBufferTarget as WebMArrayBufferTarget } from 'webm-muxer';
 import JSZip from 'jszip';
 import useStore from '../store/useStore';
 import { SoundFontAdapter } from './SoundFontAdapter';
+import { getAudioEngine } from '@/audio/AudioEngine';
 
 const downloadBlob = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
@@ -17,7 +20,7 @@ export class ExportManager {
     private static audioCache: { midiData: any, buffer: Tone.ToneAudioBuffer } | null = null;
 
     static async renderAudio(midiData: any, onProgress?: (p: number) => void, signal?: AbortSignal): Promise<Tone.ToneAudioBuffer> {
-        // [Cache Check]
+        // Cache Check
         if (this.audioCache && this.audioCache.midiData === midiData) {
             onProgress?.(100);
             return this.audioCache.buffer;
@@ -39,8 +42,7 @@ export class ExportManager {
             const chunkDuration = Math.min(chunkSize, duration - chunkStartTime);
 
             // Render logic with Pre-roll:
-            // We render a window: [chunkStartTime - preRoll] to [chunkStartTime + chunkDuration]
-            // Then we keep only the part starting from the actual chunkStartTime.
+            // Render window: [chunkStartTime - preRoll] to [chunkStartTime + chunkDuration]
 
             // Effective render start time (clamped to 0)
             const renderStartTime = Math.max(0, chunkStartTime - preRoll);
@@ -73,10 +75,7 @@ export class ExportManager {
                         try {
                             const program = (track.instrument && track.instrument.number) || 0;
                             const isPercussion = !!track.instrument.percussion;
-                            // Gather notes for this track in this chunk? 
-                            // Optimization: Only load samples for notes in this chunk?
-                            // Or simpler: load for all unique notes in the track (passed in relevantNotes is just the chunk's notes).
-                            // Let's use relevantNotes to minimize buffer usage per chunk render!
+                            // Gather notes for this track in this chunk
                             const uniqueNotes = [...new Set(relevantNotes.map((n: any) => n.midi))] as number[];
 
                             const options = SoundFontAdapter.getSamplerOptions(program, isPercussion, Tone.getContext(), uniqueNotes);
@@ -120,17 +119,7 @@ export class ExportManager {
                 });
             }, renderDuration, numberOfChannels, sampleRate);
 
-            // 2b: Move Synth creation INSIDE the Offline callback or helper to ensure they bind to OfflineContext
-            // Actually, `Tone.Offline` callback scope is the place where we create nodes.
-            // My previous code block had synth creation inside loops? 
-            // Previous code:
-            /*
-            const chunkBuffer = await Tone.Offline(async ({ transport }) => {
-                 midiData.tracks.forEach(...) => {
-                    const synth = new Tone.PolySynth...
-                 }
-            */
-            // Yes, correct. I will fill in the synth creation logic below properly.
+
 
 
             // Copy Valid Slice to final buffer
@@ -174,16 +163,40 @@ export class ExportManager {
             fps: number,
             bitrate?: number,
             enableAudio?: boolean,
+            transparentBackground?: boolean,
+            format?: 'mp4' | 'webm' | 'hevc',
             signal?: AbortSignal
         },
         onProgress?: (progress: number, status: string) => void
     ) {
         if (!p5Instance || !midiData) throw new Error("Missing resources");
 
-        // 0. Capture Original State to restore later (Defined outside try for scope visibility)
-        const originalWidth = p5Instance.width;
-        const originalHeight = p5Instance.height;
-        const originalDensity = p5Instance.pixelDensity();
+        // Detect Renderer Type early
+        const isP5 = !!(p5Instance && p5Instance.canvas && typeof p5Instance.pixelDensity === 'function');
+        const isThree = !!(p5Instance && p5Instance.renderer && p5Instance.manualRender);
+
+        if (!isP5 && !isThree) throw new Error("Unknown Renderer");
+
+        // 0. Capture Original State to restore later
+        let originalWidth, originalHeight, originalDensity, originalBackground;
+
+        if (isP5) {
+            originalWidth = p5Instance.width;
+            originalHeight = p5Instance.height;
+            originalDensity = p5Instance.pixelDensity();
+        } else {
+            // Three.js
+            const { renderer } = p5Instance;
+            const size = new THREE.Vector2();
+            renderer.getSize(size);
+            originalWidth = size.x;
+            originalHeight = size.y;
+            // Density not usually dynamically changed in this exporter flow for Three.js, but good to know
+            originalDensity = renderer.getPixelRatio();
+            if (p5Instance.scene) {
+                originalBackground = p5Instance.scene.background;
+            }
+        }
 
         try {
             const { width, height, fps } = options;
@@ -207,74 +220,63 @@ export class ExportManager {
                 onProgress?.(0, "Skipping Audio...");
             }
 
-            // Note: The actual "OfflineRendering" (WebAudio) step is blackbox and might jump from 50% to done.
+            // Note: OfflineRendering step is opaque.
 
-            // 2. Setup Video Muxer
-            const muxer = new Muxer({
-                target: new ArrayBufferTarget(),
-                video: {
-                    codec: 'avc', // H.264
-                    width: safeWidth,
-                    height: safeHeight,
-                    frameRate: fps
-                },
-                audio: audioBuffer ? {
-                    codec: 'aac',
-                    sampleRate: audioBuffer.sampleRate,
-                    numberOfChannels: audioBuffer.numberOfChannels
-                } : undefined,
-                firstTimestampBehavior: 'offset',
-                fastStart: 'in-memory'
-            });
+            // 2. Setup 
+            const isWebM = options.format === 'webm';
+            let muxer: any; // Initialized later
 
-            // 3. Prepare Canvas
-            p5Instance.setManualMode(true);
+            // Renderer is already detected above as isP5 / isThree
 
-            // Ensure 1:1 pixel mapping for export to avoid scaling artifacts and high-DPI issues
-            p5Instance.pixelDensity(1);
+            let sourceCanvas: HTMLCanvasElement;
 
-            // Only resize if necessary to avoid context recreation flicker
-            if (p5Instance.width !== width || p5Instance.height !== height) {
-                p5Instance.resizeCanvas(width, height);
-                // Wait for DOM update
-                await new Promise(r => setTimeout(r, 100));
+            if (isP5) {
+                // P5 Setup
+                p5Instance.setManualMode(true);
+                (p5Instance as any).transparentBackground = !!options.transparentBackground;
+                p5Instance.pixelDensity(1);
+
+                if (p5Instance.width !== width || p5Instance.height !== height) {
+                    p5Instance.resizeCanvas(width, height);
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                p5Instance.background(0);
+                p5Instance.redraw();
+                await new Promise(r => setTimeout(r, 50));
+
+                sourceCanvas = p5Instance.canvas;
+            } else {
+                // Three.js Setup
+                const { renderer, camera, scene } = p5Instance; // Typed as any
+                sourceCanvas = renderer.domElement;
+
+                // Save original size
+                const originalSize = new THREE.Vector2();
+                renderer.getSize(originalSize);
+
+                // Resize
+                renderer.setSize(width, height, false);
+                if (camera.isPerspectiveCamera) {
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
+                } else if (camera.isOrthographicCamera) {
+                    // Adjust orthographic bounds if needed
+                }
+
+                // If transparent
+                if (options.transparentBackground) {
+                    renderer.setClearColor(0x000000, 0); // Transparent
+                    if (scene) {
+                        // Temp remove background for transparency
+                        scene.background = null;
+                    }
+                } else {
+                    renderer.setClearColor(0x000000, 1); // Opaque black
+                }
             }
 
-            // Force a redraw to ensure context is active and backing store is allocated
-            p5Instance.background(0); // Clear first
-            p5Instance.redraw();
-            await new Promise(r => setTimeout(r, 50));
-
-            // 4. Video Encoding Loop
-            // Re-fetch canvas in case resize replaced it
-            const sourceCanvas = p5Instance.canvas; // p5.canvas is the HTMLCanvasElement
-
-            // Validate Source Canvas
-            if (!sourceCanvas || !(sourceCanvas instanceof HTMLCanvasElement)) {
-                throw new Error("Failed to access P5 Canvas element");
-            }
-
-            // Create an intermediate canvas for stable encoding
-            // This isolates us from P5's backing store / pixelDensity quirks
-            let exportCanvas: HTMLCanvasElement | OffscreenCanvas;
-            let exportCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
-
-            // Force using standard HTML Canvas for stability over OffscreenCanvas
-            // OffscreenCanvas can sometimes be detached or lose context in long processes or specific environments
-            exportCanvas = document.createElement('canvas');
-            exportCanvas.width = safeWidth;
-            exportCanvas.height = safeHeight;
-            exportCtx = (exportCanvas as HTMLCanvasElement).getContext('2d', { willReadFrequently: true });
-
-            if (!exportCtx) throw new Error("Failed to create export canvas context");
-
-            // Initialize canvas to prevent "Invalid source state" with empty/unallocated buffer
-            exportCtx.fillStyle = '#000000';
-            exportCtx.fillRect(0, 0, safeWidth, safeHeight);
-
-            // Monitor errors to prevent finalizing broken files
+            // 3. Configure Encoder & Muxer
             let encodingError: Error | null = null;
-
 
             const videoEncoder = new VideoEncoder({
                 output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
@@ -284,98 +286,209 @@ export class ExportManager {
                 }
             });
 
-            const vConfig: VideoEncoderConfig = {
-                codec: 'avc1.640033', // H.264 High Profile Level 5.1
-                width: safeWidth,
-                height: safeHeight,
-                bitrate,
-                framerate: fps,
-                // Force software encoding to avoid hardware driver bugs/hangs at flush()
-                hardwareAcceleration: 'prefer-software'
-            };
+            let vConfig: VideoEncoderConfig; // Use any or strict type if imported
+            let muxerCodec: string;
 
-            // Check support and fallback if necessary
-            try {
-                const support = await VideoEncoder.isConfigSupported(vConfig);
-                if (!support.supported) {
-                    console.warn("High Profile 5.1 (Software) not supported, trying default.");
-                    // Remove specific constraints to let browser find best fit
-                    delete vConfig.codec;
-                    delete vConfig.hardwareAcceleration;
-                    vConfig.codec = 'avc1.4d002a'; // Reset to Main 4.2 as backup
+            if (isWebM) {
+                const candidates = [
+                    { codec: 'vp09.02.10.10', muxer: 'V_VP9', desc: 'VP9 Profile 2' },
+                    { codec: 'vp09.03.10.10', muxer: 'V_VP9', desc: 'VP9 Profile 3' },
+                    { codec: 'vp09.00.10.08', muxer: 'V_VP9', desc: 'VP9 Profile 0' },
+                    { codec: 'vp8', muxer: 'V_VP8', desc: 'VP8' },
+                    { codec: 'av01.0.04M.08', muxer: 'V_AV1', desc: 'AV1' }
+                ];
+
+                let bestMatch = null;
+
+                for (const c of candidates) {
+                    const testConfig: any = {
+                        codec: c.codec,
+                        width: safeWidth,
+                        height: safeHeight,
+                        bitrate,
+                        framerate: fps,
+                        alpha: options.transparentBackground ? 'keep' : 'discard',
+                        hardwareAcceleration: 'prefer-software'
+                    };
+                    try {
+                        const support = await VideoEncoder.isConfigSupported(testConfig);
+                        if (support.supported && (!options.transparentBackground || support.config.alpha === 'keep')) {
+                            bestMatch = c;
+                            vConfig = testConfig;
+                            break;
+                        }
+                    } catch (e) { }
                 }
-            } catch (e) {
-                console.warn("isConfigSupported check failed, proceeding with config anyway", e);
+
+                if (!bestMatch) {
+                    console.warn("[Export] No explicit WebM codec supported, defaulting to VP8");
+                    vConfig = {
+                        codec: 'vp8',
+                        width: safeWidth,
+                        height: safeHeight,
+                        bitrate,
+                        framerate: fps,
+                        alpha: options.transparentBackground ? 'keep' : 'discard'
+                    } as any;
+                    muxerCodec = 'V_VP8';
+                } else {
+                    console.log(`[Export] Selected WebM codec: ${bestMatch.desc}`);
+                    muxerCodec = bestMatch.muxer;
+                    vConfig = {
+                        codec: bestMatch.codec,
+                        width: safeWidth,
+                        height: safeHeight,
+                        bitrate,
+                        framerate: fps,
+                        alpha: options.transparentBackground ? 'keep' : 'discard'
+                    } as any;
+                }
+            } else if (options.format === 'hevc') {
+                const candidates = [
+                    { codec: 'hvc1.1.6.L93.B0', desc: 'HEVC Main 10' },
+                    { codec: 'hvc1.2.4.L93.B0', desc: 'HEVC Main 4:4:4' },
+                    { codec: 'hvc1.1.6.L93.90', desc: 'HEVC' }
+                ];
+
+                let bestMatch = null;
+                for (const c of candidates) {
+                    const testConfig: any = {
+                        codec: c.codec,
+                        width: safeWidth,
+                        height: safeHeight,
+                        bitrate,
+                        framerate: fps,
+                        alpha: options.transparentBackground ? 'keep' : 'discard',
+                        hardwareAcceleration: 'prefer-hardware'
+                    };
+                    try {
+                        const support = await VideoEncoder.isConfigSupported(testConfig);
+                        if (support.supported && (!options.transparentBackground || support.config.alpha === 'keep')) {
+                            bestMatch = c;
+                            vConfig = testConfig;
+                            break;
+                        }
+                    } catch (e) { }
+                }
+
+                if (!bestMatch) {
+                    console.warn("[Export] HEVC fallback to H.264");
+                    vConfig = {
+                        codec: 'avc1.640033',
+                        width: safeWidth,
+                        height: safeHeight,
+                        bitrate,
+                        framerate: fps,
+                        alpha: 'discard'
+                    } as any;
+                    muxerCodec = 'avc';
+                } else {
+                    console.log(`[Export] Selected HEVC codec: ${bestMatch.desc}`);
+                    vConfig = {
+                        codec: bestMatch.codec,
+                        width: safeWidth,
+                        height: safeHeight,
+                        bitrate,
+                        framerate: fps,
+                        alpha: options.transparentBackground ? 'keep' : 'discard'
+                    } as any;
+                    muxerCodec = 'hevc';
+                }
+            } else {
+                vConfig = {
+                    codec: 'avc1.640033',
+                    width: safeWidth,
+                    height: safeHeight,
+                    bitrate,
+                    framerate: fps
+                } as any;
+                muxerCodec = 'avc';
             }
 
-            // Check if config is supported (optional but good practice, though we just rely on try/catch/error callback)
-            // videoEncoder.configure(vConfig); 
+            // Muxer Init
+            if (isWebM) {
+                muxer = new WebMMuxer({
+                    target: new WebMArrayBufferTarget(),
+                    video: {
+                        codec: muxerCodec as any,
+                        width: safeWidth,
+                        height: safeHeight,
+                        frameRate: fps,
+                        alpha: options.transparentBackground
+                    },
+                    audio: audioBuffer ? {
+                        codec: 'A_OPUS',
+                        sampleRate: audioBuffer.sampleRate,
+                        numberOfChannels: audioBuffer.numberOfChannels
+                    } : undefined,
+                    firstTimestampBehavior: 'offset'
+                });
+            } else {
+                muxer = new Muxer({
+                    target: new Mp4ArrayBufferTarget(),
+                    video: {
+                        codec: muxerCodec === 'hevc' ? 'hevc' : 'avc',
+                        width: safeWidth,
+                        height: safeHeight,
+                        frameRate: fps
+                    },
+                    audio: audioBuffer ? {
+                        codec: 'aac',
+                        sampleRate: audioBuffer.sampleRate,
+                        numberOfChannels: audioBuffer.numberOfChannels
+                    } : undefined,
+                    firstTimestampBehavior: 'offset',
+                    fastStart: 'in-memory'
+                });
+            }
 
-            videoEncoder.configure(vConfig);
+            try {
+                videoEncoder.configure(vConfig as any);
+            } catch (e: any) {
+                console.warn("[Export] Configure failed, retrying without alpha", e);
+                if (options.transparentBackground) {
+                    (vConfig as any).alpha = 'discard';
+                    videoEncoder.configure(vConfig as any);
+                } else {
+                    throw e;
+                }
+            }
 
-            // 5. Audio Encoding
-            // Using mp4-muxer directly often isn't enough for raw audio data, 
-            // usually we need AudioEncoder which is finicky in WebCodecs.
-            // HOWEVER, mp4-muxer documentation says it takes EncodedAudioChunk.
-            // We need an AudioEncoder.
-
+            // Audio Encoder Setup
             let audioEncoder: AudioEncoder | null = null;
             if (audioBuffer) {
                 audioEncoder = new AudioEncoder({
                     output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-                    error: (e) => {
-                        console.error("AudioEncoder Error:", e);
-                        encodingError = e instanceof Error ? e : new Error(String(e));
-                    }
+                    error: (e) => console.error("AudioEncoder Error", e)
                 });
-                audioEncoder.configure({
-                    codec: 'mp4a.40.2', // AAC LC
+                audioEncoder.configure(isWebM ? {
+                    codec: 'opus',
+                    sampleRate: audioBuffer.sampleRate,
+                    numberOfChannels: audioBuffer.numberOfChannels,
+                    bitrate: 128000
+                } : {
+                    codec: 'mp4a.40.2',
                     sampleRate: audioBuffer.sampleRate,
                     numberOfChannels: audioBuffer.numberOfChannels,
                     bitrate: 128000
                 });
 
                 // Encode Audio Data
-                // specific implementation to convert AudioBuffer to AudioData
-                // This part deals with raw PCM to AudioData.
-
-                // Create AudioData from buffer
                 const numberOfChannels = audioBuffer.numberOfChannels;
                 const length = audioBuffer.length;
                 const sampleRate = audioBuffer.sampleRate;
-
-                // ... (rest of audio encoding logic)
-
-
-                // Interleave channel data? AudioData expects planar or interleaved?
-                // AudioData init takes `data` which is BufferSource.
-                // Format can be 'f32-planar'.
-
-                // We need to construct AudioData chunks.
-                // For simplicity, we can pass the whole buffer if small, or chunk it.
-                // WebCodecs AudioData limit is usually high enough for reasonable clips, 
-                // but 20MB+ might hang. Let's do it in 1 second chunks.
-
                 const channelData = [];
-                for (let i = 0; i < numberOfChannels; i++) {
-                    channelData.push(audioBuffer.getChannelData(i));
-                }
+                for (let i = 0; i < numberOfChannels; i++) channelData.push(audioBuffer.getChannelData(i));
 
-                // Create a single AudioData (if possible) or chunk it
-                // Note: AudioData constructor is complex. 
-                // Let's implement a loop.
-
-                const chunkSize = sampleRate; // 1 second chunks
+                const chunkSize = sampleRate;
                 let audioTimestamp = 0;
 
                 for (let frame = 0; frame < length; frame += chunkSize) {
                     const size = Math.min(chunkSize, length - frame);
                     const data = new Float32Array(size * numberOfChannels);
 
-                    // Interleave logic if needed, but 'f32-planar' means we pass planes sequentially?
-                    // "The sequence of bytes... depends on format."
-                    // f32-planar: all samples for channel 0, then all for channel 1...
-
+                    // Interleave for standard AudioData? Or planar?
+                    // WebCodecs AudioData usually expects planar if format is f32-planar.
                     let offset = 0;
                     for (let c = 0; c < numberOfChannels; c++) {
                         data.set(channelData[c].subarray(frame, frame + size), offset);
@@ -387,7 +500,7 @@ export class ExportManager {
                         sampleRate,
                         numberOfChannels,
                         numberOfFrames: size,
-                        timestamp: audioTimestamp * 1000000, // microseconds
+                        timestamp: audioTimestamp * 1000000,
                         data
                     });
 
@@ -397,9 +510,33 @@ export class ExportManager {
                 }
             }
 
-            // 6. Video Loop
+            // 4. Video Encoding Loop
+            // Re-fetch canvas in case resize replaced it
+            if (!sourceCanvas || !(sourceCanvas instanceof HTMLCanvasElement)) {
+                throw new Error("Failed to access Canvas element");
+            }
+
+            // 4b. Intermediate Canvas
+            let exportCanvas: HTMLCanvasElement | OffscreenCanvas;
+            let exportCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+
+            exportCanvas = document.createElement('canvas');
+            exportCanvas.width = safeWidth;
+            exportCanvas.height = safeHeight;
+            exportCtx = (exportCanvas as HTMLCanvasElement).getContext('2d', { willReadFrequently: true });
+
+            if (!exportCtx) throw new Error("Failed to create export canvas context");
+
+            if (options.transparentBackground) {
+                exportCtx.clearRect(0, 0, safeWidth, safeHeight);
+            } else {
+                exportCtx.fillStyle = '#000000';
+                exportCtx.fillRect(0, 0, safeWidth, safeHeight);
+            }
+
+            // 5. Video Loop
             for (let i = 0; i < totalFrames; i++) {
-                // Backpressure: Wait if encoder is overwhelmed (essential for software encoding)
+                // Backpressure
                 while (videoEncoder.encodeQueueSize > 5) {
                     await new Promise(r => setTimeout(r, 10));
                 }
@@ -409,11 +546,26 @@ export class ExportManager {
                     if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close();
                     throw encodingError || new Error("Export Aborted");
                 }
+
                 const time = i / fps;
-                p5Instance.renderFrame(time);
+
+                if (isP5) {
+                    p5Instance.renderFrame(time);
+                } else if (isThree) {
+                    if (options.transparentBackground) {
+                        const { renderer } = p5Instance;
+                        renderer.setClearColor(0x000000, 0);
+                        renderer.clear();
+                    }
+                    p5Instance.manualRender(time);
+                    p5Instance.manualRender(time);
+                }
 
                 // Draw to intermediate canvas
                 if (exportCtx) {
+                    if (options.transparentBackground) {
+                        exportCtx.clearRect(0, 0, safeWidth, safeHeight);
+                    }
                     exportCtx.drawImage(sourceCanvas, 0, 0, safeWidth, safeHeight);
                 }
 
@@ -421,18 +573,13 @@ export class ExportManager {
                 if (i % 60 === 0) {
                     const percent = (i / totalFrames) * 100;
                     onProgress?.(percent, `Rendering Frame ${i}/${totalFrames}`);
-                    // Yield to event loop to update UI
                     await new Promise(r => setTimeout(r, 0));
-
-                    // CRITICAL: Check abort again after yield
                     if (options.signal?.aborted || encodingError) {
                         if (videoEncoder.state !== 'closed') videoEncoder.close();
                         if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close();
                         throw encodingError || new Error("Export Aborted");
                     }
                 }
-
-                // Capture Frame from INTERMEDIATE canvas
                 // Capture Frame from INTERMEDIATE canvas
                 let frame: VideoFrame | null = null;
                 try {
@@ -441,9 +588,8 @@ export class ExportManager {
                     });
                 } catch (err) {
                     console.error("Frame creation failed at index " + i, err);
-                    // Skip frame or abort? Skipping might desync. Abort is safer?
-                    // But maybe it's just a one-off glitch. 
-                    // Let's abort to be safe as user wants valid output.
+                    console.error("Frame creation failed at index " + i, err);
+                    // Skip not safe for sync. Abort.
                     if (videoEncoder.state !== 'closed') videoEncoder.close();
                     if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close();
                     throw new Error("Frame creation failed: " + err);
@@ -470,21 +616,41 @@ export class ExportManager {
                 muxer.finalize();
 
                 const buffer = muxer.target.buffer;
-                downloadBlob(new Blob([buffer], { type: 'video/mp4' }), "midi_export.mp4");
+                downloadBlob(new Blob([buffer], { type: isWebM ? 'video/webm' : 'video/mp4' }), isWebM ? "midi_export.webm" : "midi_export.mp4");
             }
 
         } finally {
             // Cleanup
-            p5Instance.setManualMode(false);
+            if (isP5) {
+                p5Instance.setManualMode(false);
+                (p5Instance as any).transparentBackground = false;
+            }
 
             // Restore original canvas state
             try {
-                if (typeof originalDensity !== 'undefined') p5Instance.pixelDensity(originalDensity);
-                if (originalWidth && originalHeight) {
-                    p5Instance.resizeCanvas(originalWidth, originalHeight);
+                if (isP5) {
+                    if (typeof originalDensity !== 'undefined') p5Instance.pixelDensity(originalDensity);
+                    if (originalWidth && originalHeight) {
+                        p5Instance.resizeCanvas(originalWidth, originalHeight);
+                    }
+                    // Force one redraw to reset visuals
+                    p5Instance.redraw();
+                } else if (isThree) {
+                    const { renderer, camera } = p5Instance;
+                    // Restore size
+                    if (originalWidth && originalHeight) {
+                        renderer.setSize(originalWidth, originalHeight, false);
+                        if (camera.isPerspectiveCamera) {
+                            camera.aspect = originalWidth / originalHeight;
+                            camera.updateProjectionMatrix();
+                        }
+                        // Force render to clear any glitch
+                        p5Instance.manualRender(useStore.getState().currentTime);
+                    }
+                    if (typeof originalBackground !== 'undefined' && p5Instance.scene) {
+                        p5Instance.scene.background = originalBackground;
+                    }
                 }
-                // Force one redraw to reset visuals
-                p5Instance.redraw();
             } catch (e) {
                 console.warn("Failed to restore canvas state:", e);
             }
@@ -503,11 +669,20 @@ export class ExportManager {
         },
         onProgress?: (progress: number, status: string) => void
     ) {
+        // ... (Realtime export logic remains largely P5 specific for now, or needs similar refactor) ...
+        // For safety, let's just guard the P5 parts or assume P5 since realtime might not be enabled for Three yet.
+        // But to be safe against crashes:
+
         if (!p5Instance || !midiData) throw new Error("Missing resources");
 
         const { width, height, fps } = options;
         const duration = midiData.duration + 2;
         const bitrate = options.bitrate || 5e6;
+
+        // Detect Renderer Type
+        const isP5 = !!(p5Instance && p5Instance.canvas && typeof p5Instance.pixelDensity === 'function');
+        // Realtime not yet supported for Three.js in this refactor
+        if (!isP5) throw new Error("Realtime Record not supported for Three.js yet.");
 
         // Save original state
         const originalWidth = p5Instance.width;
@@ -515,12 +690,12 @@ export class ExportManager {
         const wasPlaying = useStore.getState().isPlaying;
 
         try {
-            onProgress?.(0, "准备实时录制...");
+            onProgress?.(0, "Preparing realtime recording...");
 
             // 1. Stop current playback if any
             if (wasPlaying) {
-                const { audioEngine } = await import('@/audio/AudioEngine');
-                audioEngine.pause();
+                // const { getAudioEngine } = await import('@/audio/AudioEngine');
+                getAudioEngine().pause();
                 useStore.getState().setIsPlaying(false);
                 await new Promise(r => setTimeout(r, 200));
             }
@@ -555,7 +730,7 @@ export class ExportManager {
             if (!MediaRecorder.isTypeSupported(mimeType)) {
                 mimeType = 'video/webm';
                 if (!MediaRecorder.isTypeSupported(mimeType)) {
-                    throw new Error("浏览器不支持视频录制");
+                    throw new Error("Browser does not support video recording");
                 }
             }
 
@@ -573,11 +748,11 @@ export class ExportManager {
             let recordingError: Error | null = null;
             mediaRecorder.onerror = (e) => {
                 console.error("MediaRecorder error:", e);
-                recordingError = new Error("录制出错");
+                recordingError = new Error("Recording Error");
             };
 
             // 6. Setup playback
-            onProgress?.(0, "开始实时录制...");
+            onProgress?.(0, "Starting realtime recording...");
 
             const startTime = Date.now();
             let recordingComplete = false;
@@ -605,7 +780,7 @@ export class ExportManager {
 
                 const elapsed = (Date.now() - startTime) / 1000;
                 const progress = Math.min(5 + (elapsed / duration) * 90, 95);
-                onProgress?.(progress, `实时录制中... ${elapsed.toFixed(1)}s / ${duration.toFixed(1)}s`);
+                onProgress?.(progress, `Recording... ${elapsed.toFixed(1)}s / ${duration.toFixed(1)}s`);
 
                 if (elapsed >= duration) {
                     clearInterval(progressInterval);
@@ -616,7 +791,7 @@ export class ExportManager {
             // 8. Wait for recording to complete
             await new Promise<void>((resolve, reject) => {
                 const timeout = setTimeout(() => {
-                    reject(new Error("录制超时"));
+                    reject(new Error("Recording Timeout"));
                 }, (duration + 5) * 1000); // Extra 5 seconds buffer
 
                 mediaRecorder.onstop = () => {
@@ -631,7 +806,7 @@ export class ExportManager {
                         clearTimeout(timeout);
                         clearInterval(progressInterval);
                         mediaRecorder.stop();
-                        reject(new Error("录制已取消"));
+                        reject(new Error("Recording Cancelled"));
                     });
                 }
             });
@@ -641,21 +816,21 @@ export class ExportManager {
             }
 
             // 10. Stop playback
-            const { audioEngine: audioEngineStop } = await import('@/audio/AudioEngine');
-            audioEngineStop.pause();
+            // const { getAudioEngine: getEngineStop } = await import('@/audio/AudioEngine');
+            getAudioEngine().pause();
             useStore.getState().setIsPlaying(false);
             Tone.getDestination().disconnect(audioDestination);
 
             // 11. Create final file
-            onProgress?.(100, "保存文件...");
+            onProgress?.(100, "Saving file...");
 
             if (chunks.length === 0) {
-                throw new Error("未捕获到任何数据，录制失败");
+                throw new Error("No data captured, recording failed");
             }
 
             const blob = new Blob(chunks, { type: mimeType });
             if (blob.size === 0) {
-                throw new Error("录制的文件为空（0字节）");
+                throw new Error("Recorded file is empty (0 bytes)");
             }
 
             downloadBlob(blob, "midi_export_realtime.webm");
@@ -668,9 +843,9 @@ export class ExportManager {
 
         } catch (e) {
             // Cleanup on error
-            const { audioEngine } = await import('@/audio/AudioEngine');
+            // const { getAudioEngine } = await import('@/audio/AudioEngine');
             if (useStore.getState().isPlaying) {
-                audioEngine.pause();
+                getAudioEngine().pause();
                 useStore.getState().setIsPlaying(false);
             }
 
@@ -683,9 +858,9 @@ export class ExportManager {
         } finally {
             // Restore original playing state if needed
             if (wasPlaying) {
-                const { audioEngine } = await import('@/audio/AudioEngine');
+                // const { getAudioEngine } = await import('@/audio/AudioEngine');
                 await new Promise(r => setTimeout(r, 200));
-                audioEngine.play();
+                getAudioEngine().play();
                 useStore.getState().setIsPlaying(true);
             }
         }
@@ -698,24 +873,80 @@ export class ExportManager {
             width: number,
             height: number,
             fps: number,
+            transparentBackground?: boolean,
             signal?: AbortSignal
         },
         onProgress?: (progress: number, status: string) => void
     ) {
+        if (!p5Instance || !midiData) throw new Error("Missing resources");
+
         const { width, height, fps } = options;
         const duration = midiData.duration + 2;
         const totalFrames = Math.ceil(duration * fps);
         const zip = new JSZip();
 
+        // Detect Renderer Type early
+        const isP5 = !!(p5Instance && p5Instance.canvas && typeof p5Instance.pixelDensity === 'function');
+        const isThree = !!(p5Instance && p5Instance.renderer && p5Instance.manualRender);
+
+        if (!isP5 && !isThree) throw new Error("Unknown Renderer");
+
+        // 0. Capture Original State to restore later
+        let originalWidth, originalHeight, originalDensity, originalBackground;
+
+        if (isP5) {
+            originalWidth = p5Instance.width;
+            originalHeight = p5Instance.height;
+            originalDensity = p5Instance.pixelDensity();
+        } else {
+            // Three.js
+            const { renderer } = p5Instance;
+            const size = new THREE.Vector2();
+            renderer.getSize(size);
+            originalWidth = size.x;
+            originalHeight = size.y;
+            if (p5Instance.scene) {
+                originalBackground = p5Instance.scene.background;
+            }
+        }
+
         try {
-            p5Instance.setManualMode(true);
-            p5Instance.resizeCanvas(width, height);
+            if (isP5) {
+                p5Instance.setManualMode(true);
+                (p5Instance as any).transparentBackground = !!options.transparentBackground;
+                p5Instance.pixelDensity(1);
+                p5Instance.resizeCanvas(width, height);
+            } else if (isThree) {
+                const { renderer, camera, scene } = p5Instance;
+                renderer.setSize(width, height, false);
+                if (camera.isPerspectiveCamera) {
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
+                }
+
+                if (options.transparentBackground) {
+                    renderer.setClearColor(0x000000, 0);
+                    if (scene) scene.background = null;
+                } else {
+                    renderer.setClearColor(0x000000, 1);
+                }
+            }
 
             for (let i = 0; i < totalFrames; i++) {
                 if (options.signal?.aborted) throw new Error("Export Aborted");
 
                 const time = i / fps;
-                p5Instance.renderFrame(time);
+
+                if (isP5) {
+                    p5Instance.renderFrame(time);
+                } else if (isThree) {
+                    if (options.transparentBackground) {
+                        const { renderer } = p5Instance;
+                        renderer.setClearColor(0x000000, 0);
+                        renderer.clear();
+                    }
+                    p5Instance.manualRender(time);
+                }
 
                 // Update progress
                 if (i % 30 === 0) {
@@ -725,9 +956,18 @@ export class ExportManager {
                 }
 
                 // Capture Blob
-                const blob = await new Promise<Blob | null>(resolve =>
-                    p5Instance.canvas.toBlob(resolve, 'image/png')
-                );
+                let blob: Blob | null = null;
+                if (isP5) {
+                    blob = await new Promise<Blob | null>(resolve =>
+                        p5Instance.canvas.toBlob(resolve, 'image/png')
+                    );
+                } else if (isThree) {
+                    // Three.js capture
+                    const { renderer } = p5Instance;
+                    blob = await new Promise<Blob | null>(resolve =>
+                        renderer.domElement.toBlob(resolve, 'image/png')
+                    );
+                }
 
                 if (blob) {
                     const filename = `frame_${String(i).padStart(5, '0')}.png`;
@@ -740,7 +980,36 @@ export class ExportManager {
             downloadBlob(content, "frames.zip");
 
         } finally {
-            p5Instance.setManualMode(false);
+            // Cleanup & Restore
+            if (isP5) {
+                p5Instance.setManualMode(false);
+                (p5Instance as any).transparentBackground = false;
+            }
+
+            try {
+                if (isP5) {
+                    if (typeof originalDensity !== 'undefined') p5Instance.pixelDensity(originalDensity);
+                    if (originalWidth && originalHeight) {
+                        p5Instance.resizeCanvas(originalWidth, originalHeight);
+                    }
+                    p5Instance.redraw();
+                } else if (isThree) {
+                    const { renderer, camera } = p5Instance;
+                    if (originalWidth && originalHeight) {
+                        renderer.setSize(originalWidth, originalHeight, false);
+                        if (camera.isPerspectiveCamera) {
+                            camera.aspect = originalWidth / originalHeight;
+                            camera.updateProjectionMatrix();
+                        }
+                        p5Instance.manualRender(useStore.getState().currentTime);
+                    }
+                    if (typeof originalBackground !== 'undefined' && p5Instance.scene) {
+                        p5Instance.scene.background = originalBackground;
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to restore canvas state:", e);
+            }
         }
     }
 }

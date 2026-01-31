@@ -3,9 +3,9 @@ import useStore from '@/store/useStore';
 import { Zap, Waves, Loader2, ChevronDown, ChevronUp, Activity, Server, Cpu } from 'lucide-react';
 import { getActiveNoteDetails, areNotesEqual, detectLocalChord } from '@/lib/theory';
 import { api } from '@/lib/api';
-import { useTranslation } from 'react-i18next'; // 1. 引入 i18n
+import { useTranslation } from 'react-i18next';
 
-// --- FPS Hook ---
+// FPS Hook
 const useFps = () => {
     const [fps, setFps] = useState(60);
     useEffect(() => {
@@ -28,7 +28,7 @@ const useFps = () => {
     return fps;
 };
 
-// --- Enharmonic Utils ---
+// Enharmonic Utils
 const SHARP_KEYS = ['G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 const FLAT_KEYS = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'];
 
@@ -47,7 +47,7 @@ const resolveEnharmonicName = (name: string, globalKey: string) => {
     return name;
 };
 
-// --- Smoothing & Timeline Components ---
+// Smoothing & Timeline Components
 const smoothTimelineData = (rawTimeline: any[], totalDuration: number, minDuration = 3.0) => {
     if (!rawTimeline || rawTimeline.length === 0) return [];
     let segments = rawTimeline.map((entry, i) => {
@@ -134,13 +134,13 @@ const KeyTimeline: React.FC<KeyTimelineProps> = ({ timeline, duration, currentTi
     );
 };
 
-// --- MAIN COMPONENT ---
+// Main Component
 interface AnalysisHUDProps {
     isLight: boolean;
 }
 
 const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
-    const { t } = useTranslation(); // 2. 初始化 Hook
+    const { t } = useTranslation();
     const {
         analysisData,
         midiData,
@@ -164,8 +164,8 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
 
     const fps = useFps();
 
-    // --- 1. Dynamic Key Logic ---
-    // [MODIFIED] Use smoothed timeline data to prevent jitter
+    // Dynamic Key Logic
+    // Use smoothed timeline data to prevent jitter
     const smoothedKeys = useMemo(() => {
         const timeline = analysisData?.music_theory?.key_timeline;
         if (!timeline || !midiData) return [];
@@ -199,7 +199,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
 
     // Always show alts section (removed conditional logic)
 
-    // --- 2. Hybrid Chord Detection Logic ---
+    // Hybrid Chord Detection Logic
     useEffect(() => {
         if (!midiData) return;
         const targetIndices = analysisTrackIndices.length > 0 ? analysisTrackIndices : visibleTrackIndices;
@@ -215,7 +215,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
             const midiNumbers = currentNotes.map(n => n.midi);
 
             if (currentNotes.length < 2) {
-                // [MODIFIED] Debounce clearing to prevent flickering on short notes/releases
+                // Debounce clearing to prevent flickering on short notes/releases
                 if (visualHoldTimerRef.current) clearTimeout(visualHoldTimerRef.current);
                 visualHoldTimerRef.current = setTimeout(() => {
                     setChordData({ name: "---", confidence: 0, source: 'none', aliases: [] });
@@ -226,8 +226,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
             // If we have valid notes, CANCEL the clear timer immediately
             if (visualHoldTimerRef.current) clearTimeout(visualHoldTimerRef.current);
 
-            // [MODIFIED] Add small input debounce (40ms) to smooth arpeggios/simultaneous presses
-            // This replaces the instant update, effectively "waiting" for the full chord
+            // Add small input debounce (40ms) to smooth arpeggios/simultaneous presses
             if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
             debounceTimerRef.current = setTimeout(async () => {
                 const localResult = detectLocalChord(midiNumbers, chordAnalysisEngine);
@@ -274,7 +273,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
         }
     }, [currentTime, midiData, analysisTrackIndices, visibleTrackIndices, chordDetectionMode, chordAnalysisEngine]);
 
-    // --- 3. Maps & Stats ---
+    // Maps & Stats
     const unifiedMaps = useMemo(() => {
         if (!midiData?.header) return { tempoMap: [], meterMap: [] };
         const ppq = midiData.header.ppq || 480;
@@ -327,7 +326,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
     return (
         <div className={`fixed bottom-8 right-8 flex flex-col items-end space-y-4 z-40 select-none ${textColor}`}>
 
-            {/* --- CHORDS DISPLAY SECTION --- */}
+            {/* Chords Display Section */}
             <div className="flex flex-col items-end space-y-2 mb-4 pointer-events-none">
                 <div className="flex items-start gap-3">
                     <div className="text-right flex flex-col items-end">
@@ -390,7 +389,7 @@ const AnalysisHUD: React.FC<AnalysisHUDProps> = ({ isLight }) => {
                 </div>
             </div>
 
-            {/* --- STATS PANEL --- */}
+            {/* Stats Panel */}
             <div className={`flex flex-col items-end space-y-2 border rounded-xl p-4 transition-all duration-500 ${panelBg} ${borderCol} pointer-events-auto`}>
                 <div className="flex items-center justify-between w-full gap-8">
                     <button onClick={() => setIsExpanded(!isExpanded)} className={`text-[10px] uppercase tracking-[0.2em] flex items-center gap-1 hover:text-midi-accent transition-colors ${textDim}`}>

@@ -89,7 +89,7 @@ const PixiVisualizer = () => {
     const x = gsap.utils.mapRange(21, 108, screenW * 0.05, screenW * 0.95, note);
 
     if (type === 'note_on' && velocity > 0) {
-      // ✅ 修改 1: 传入 channel
+      // Pass channel
       spawnNote(noteId, x, velocity, container, note, channel);
     } else if (type === 'note_off' || (type === 'note_on' && velocity === 0)) {
       releaseNote(noteId);
@@ -124,8 +124,7 @@ const PixiVisualizer = () => {
     graphics.alpha = 0;
     graphics.scale.set(0);
 
-    // --- 核心修正：直接使用字符串设置混合模式 ---
-    graphics.blendMode = pixiSettings.blendMode || 'add';
+    // Fix: direct blendMode assignment needs string in recent Pixi versions or mapping
 
     container.addChild(graphics);
     activeNotesRef.current.set(id, graphics);

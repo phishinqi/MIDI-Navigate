@@ -1,7 +1,7 @@
 // ws/ui/controls.ts
 /**
- * UI控件创建模块
- * 提供各种UI控件的创建函数
+ * UI Controls Creation Module
+ * Provides helper functions for creating various UI controls
  */
 
 
@@ -134,7 +134,7 @@ export function createChannelGrid(
 
         visBtn.onclick = () => {
             toggleChannel(i);
-            const newState = !enabled;
+            // const newState = !enabled;
             const isNowActive = visBtn.classList.toggle('active');
             visBtn.innerHTML = isNowActive ? iconEye : iconEyeOff;
         };

@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import useStore from '@/store/useStore';
-import { audioEngine } from '@/audio/AudioEngine';
+import { getAudioEngine } from '@/audio/AudioEngine';
 import * as Slider from '@radix-ui/react-slider';
-import { useTranslation } from 'react-i18next'; // 引入 hook
+import { useTranslation } from 'react-i18next';
 
 interface PlayerControlsProps {
   isLight: boolean;
 }
 
 const PlayerControls: React.FC<PlayerControlsProps> = ({ isLight }) => {
-  const { t } = useTranslation(); // 初始化 hook
+  const { t } = useTranslation();
   const isPlaying = useStore((state) => state.isPlaying);
   const setIsPlaying = useStore((state) => state.setIsPlaying);
   const midiData = useStore((state) => state.midiData);
@@ -23,17 +23,17 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({ isLight }) => {
   const setVolume = useStore((state) => state.setVolume);
   const toggleMute = useStore((state) => state.toggleMute);
 
-  useEffect(() => { audioEngine.setMasterVolume(volume); }, [volume]);
-  useEffect(() => { audioEngine.setMute(isMuted); }, [isMuted]);
+  useEffect(() => { getAudioEngine().setMasterVolume(volume); }, [volume]);
+  useEffect(() => { getAudioEngine().setMute(isMuted); }, [isMuted]);
 
   const togglePlay = async () => {
-    await audioEngine.ensureContext();
-    if (isPlaying) { audioEngine.pause(); setIsPlaying(false); }
-    else { audioEngine.play(); setIsPlaying(true); }
+    await getAudioEngine().ensureContext();
+    if (isPlaying) { getAudioEngine().pause(); setIsPlaying(false); }
+    else { getAudioEngine().play(); setIsPlaying(true); }
   };
 
   const handleSeek = (value: number[]) => {
-    audioEngine.seek(value[0]);
+    getAudioEngine().seek(value[0]);
     useStore.getState().setCurrentTime(value[0]);
   };
 
@@ -48,7 +48,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({ isLight }) => {
   const secProgress = (currentTime % 60) / 60 * 100;
   const msProgress = (currentTime % 1) * 100;
 
-  // --- Map Calculation (不变) ---
+  // --- Map Calculation (Unchanged) ---
   const maps = useMemo(() => {
     if (!midiData?.header) return { tempoMap: [], meterMap: [], ppq: 480 };
     const ppq = midiData.header.ppq || 480;
