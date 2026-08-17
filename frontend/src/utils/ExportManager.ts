@@ -52,14 +52,43 @@ export class ExportManager {
             // The duration we ask Tone.Offline to render
             const renderDuration = sliceStartOffset + chunkDuration;
 
+            // Pre-calculate and pre-load Sampler Options for this chunk's relevant notes
+            const chunkSamplersData = new Map<number, any>(); // trackIndex -> options
+            const isSoundFontLoaded = useStore.getState().isSoundFontLoaded;
+
+            if (isSoundFontLoaded) {
+                await Promise.all(midiData.tracks.map(async (track: any, trackIndex: number) => {
+                    const windowStart = renderStartTime;
+                    const windowEnd = renderStartTime + renderDuration;
+                    const relevantNotes = track.notes ? track.notes.filter((n: any) => {
+                        const noteEnd = n.time + n.duration;
+                        return noteEnd > windowStart && n.time < windowEnd;
+                    }) : [];
+
+                    if (relevantNotes.length > 0) {
+                        const program = (track.instrument && track.instrument.number) || 0;
+                        const isPercussion = !!track.instrument.percussion;
+                        const uniqueNotes = [...new Set(relevantNotes.map((n: any) => n.midi))] as number[];
+                        try {
+                            // Fetch options outside Offline Context
+                            const options = await SoundFontAdapter.getSamplerOptions(program, isPercussion, Tone.getContext(), uniqueNotes);
+                            if (options && options.urls && Object.keys(options.urls).length > 0) {
+                                chunkSamplersData.set(trackIndex, options);
+                            }
+                        } catch (e) {
+                            console.warn(`[Export] Failed to load sampler for track ${trackIndex}`, e);
+                        }
+                    }
+                }));
+            }
+
             const chunkBuffer = await Tone.Offline(async ({ transport }) => {
-                midiData.tracks.forEach((track: any, trackIndex: number) => {
+                await Promise.all(midiData.tracks.map(async (track: any, trackIndex: number) => {
                     if (!track.notes) return;
 
                     const windowStart = renderStartTime;
                     const windowEnd = renderStartTime + renderDuration;
 
-                    // Filter relevant notes
                     const relevantNotes = track.notes.filter((n: any) => {
                         const noteEnd = n.time + n.duration;
                         return noteEnd > windowStart && n.time < windowEnd;
@@ -68,21 +97,19 @@ export class ExportManager {
                     if (relevantNotes.length === 0) return;
 
                     let synth: any = null;
-                    const isSoundFontLoaded = useStore.getState().isSoundFontLoaded;
-                    console.log(`[Export] Track ${trackIndex}: SF Loaded? ${isSoundFontLoaded}`);
 
-                    if (isSoundFontLoaded) {
+                    if (chunkSamplersData.has(trackIndex)) {
+                        const options = chunkSamplersData.get(trackIndex);
                         try {
-                            const program = (track.instrument && track.instrument.number) || 0;
-                            const isPercussion = !!track.instrument.percussion;
-                            // Gather notes for this track in this chunk
-                            const uniqueNotes = [...new Set(relevantNotes.map((n: any) => n.midi))] as number[];
-
-                            const options = SoundFontAdapter.getSamplerOptions(program, isPercussion, Tone.getContext(), uniqueNotes);
-                            if (options && options.urls && Object.keys(options.urls).length > 0) {
-                                synth = new Tone.Sampler(options).toDestination();
-                            }
-                        } catch (e) { console.warn("Export SF2 Error", e); }
+                            // Re-instantiate sampler inside Offline context using pre-fetched options
+                            // We must wait for 'onload' to ensure buffers are ready before scheduling
+                            await new Promise<void>((resolve) => {
+                                synth = new Tone.Sampler({
+                                    ...options,
+                                    onload: () => resolve()
+                                }).toDestination();
+                            });
+                        } catch (e) { console.warn("Export Sampler Init Error", e); }
                     }
 
                     if (!synth) {
@@ -95,7 +122,6 @@ export class ExportManager {
 
                     synth.volume.value = -12;
 
-
                     relevantNotes.forEach((n: any) => {
                         const relativeTime = n.time - renderStartTime;
 
@@ -107,16 +133,21 @@ export class ExportManager {
                                 n.velocity
                             );
                         } else {
-                            // Clamp negative start times to 0 (covered by Pre-roll slice)
-                            synth.triggerAttackRelease(
-                                n.name,
-                                Math.max(0.05, n.duration),
-                                0,
-                                n.velocity
-                            );
+                            // Fix: Only play the remaining duration if the note started in a previous chunk
+                            const offset = -relativeTime;
+                            const remaining = n.duration - offset;
+
+                            if (remaining > 0) {
+                                synth.triggerAttackRelease(
+                                    n.name,
+                                    Math.max(0.05, remaining),
+                                    0,
+                                    n.velocity
+                                );
+                            }
                         }
                     });
-                });
+                }));
             }, renderDuration, numberOfChannels, sampleRate);
 
 
@@ -212,6 +243,25 @@ export class ExportManager {
             let audioBuffer: Tone.ToneAudioBuffer | null = null;
             if (options.enableAudio !== false) { // Default to true
                 onProgress?.(0, "Initializing Audio...");
+
+                // [NEW] Preload Remote Samples if Needed
+                if (SoundFontAdapter.isRemoteMode) {
+                    onProgress?.(0, "Preloading Samples from Backend...");
+                    for (const track of midiData.tracks) {
+                        if (!track.notes || track.notes.length === 0) continue;
+                        const program = track.instrument?.number || 0;
+                        const isPercussion = !!track.instrument?.percussion;
+                        const bank = isPercussion ? 128 : 0;
+                        const notes = track.notes.map((n: any) => n.midi);
+
+                        try {
+                            await SoundFontAdapter.preloadNotes(notes, program, bank, Tone.getContext());
+                        } catch (e) {
+                            console.warn("Preload failed", e);
+                        }
+                    }
+                }
+
                 audioBuffer = await this.renderAudio(midiData, (p) => {
                     const totalPercent = p / 5;
                     onProgress?.(totalPercent, `Rendering Audio... ${Math.round(p)}%`);

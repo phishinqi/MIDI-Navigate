@@ -40,8 +40,7 @@ interface StoreState {
   setAnalysisComplexity: (val: string) => void;
   chordDetectionMode: string;
   setChordDetectionMode: (mode: string) => void;
-  chordAnalysisEngine: 'legacy' | 'experimental';
-  setChordAnalysisEngine: (engine: 'legacy' | 'experimental') => void;
+
   incomingMidiEvent: any;
   setIncomingMidiEvent: (event: any) => void;
   rawFile: any;
@@ -87,8 +86,12 @@ interface StoreState {
   threeInstance: any | null;
   setThreeInstance: (instance: any | null) => void;
   // SoundFont
+  // SoundFont
   isSoundFontLoaded: boolean;
+  uploadProgress: number; // 0-100
+  isUploadingSoundFont: boolean;
   loadSoundFont: (file: File) => Promise<void>;
+  uploadSoundFont: (file: File) => Promise<void>;
   resetSoundFont: () => void;
 }
 
@@ -284,8 +287,7 @@ const useStore = create<StoreState>()(
       chordDetectionMode: 'tonal',
       setChordDetectionMode: (mode) => set({ chordDetectionMode: mode }),
 
-      chordAnalysisEngine: 'legacy',
-      setChordAnalysisEngine: (engine) => set({ chordAnalysisEngine: engine }),
+
 
       // Data State
       incomingMidiEvent: null,
@@ -413,22 +415,86 @@ const useStore = create<StoreState>()(
 
       // SoundFont
       isSoundFontLoaded: false,
+      uploadProgress: 0,
+      isUploadingSoundFont: false,
       loadSoundFont: async (file: File) => {
+        // [MODIFIED] Check size. If > 50MB, suggest/use remote upload
+        if (file.size > 50 * 1024 * 1024) {
+          console.log("[Store] Large file detected. Uploading to backend...");
+          // set({ isSoundFontLoaded: false }); // keep false
+          // Call new upload action
+          get().uploadSoundFont(file);
+          return;
+        }
+
+        console.log(`[Store] Loading SoundFont: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        set({ isSoundFontLoaded: false }); // Ensure false before start
         try {
           const buffer = await file.arrayBuffer();
           const result = await SoundFontAdapter.load(buffer);
           if (result) {
+            console.log("[Store] SoundFont loaded successfully");
             set({ isSoundFontLoaded: true });
+          } else {
+            console.error("[Store] SoundFontAdapter.load returned false");
           }
         } catch (e) {
-          console.error("Failed to load SoundFont", e);
+          console.error("[Store] Failed to load SoundFont", e);
         }
+      },
+      uploadSoundFont: async (file: File) => {
+        console.log(`[Store] Uploading large SF2: ${file.name}`);
+        set({ isSoundFontLoaded: false, isUploadingSoundFont: true, uploadProgress: 0 });
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        return new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', 'http://localhost:8080/api/v1/sf2/upload', true);
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percentComplete = Math.round((e.loaded / e.total) * 100);
+              // Update state throttled ideally, but for now direct set
+              set({ uploadProgress: percentComplete });
+            }
+          };
+
+          xhr.onload = async () => {
+            set({ isUploadingSoundFont: false });
+            if (xhr.status === 200 || xhr.status === 201) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                console.log("[Store] Remote Upload Success:", data);
+                SoundFontAdapter.enableRemoteMode();
+                set({ isSoundFontLoaded: true, uploadProgress: 100 });
+                resolve();
+              } catch (e) {
+                console.error("[Store] JSON Parse Error", e);
+                reject(e);
+              }
+            } else {
+              console.error("[Store] Remote Upload Failed", xhr.status, xhr.responseText);
+              reject(new Error(xhr.responseText));
+            }
+          };
+
+          xhr.onerror = (e) => {
+            console.error("[Store] Upload Network Error", e);
+            set({ isUploadingSoundFont: false });
+            reject(new Error("Network Error"));
+          };
+
+          xhr.send(formData);
+        });
       },
       resetSoundFont: () => {
         // Verify import exists or just reset state? 
         // Ideally clear adapter too.
         SoundFontAdapter.sf = null;
         SoundFontAdapter.cachedBuffers.clear();
+        SoundFontAdapter.isRemoteMode = false;
         set({ isSoundFontLoaded: false });
       },
     }),
@@ -445,7 +511,7 @@ const useStore = create<StoreState>()(
         analysisSensitivity: state.analysisSensitivity,
         analysisComplexity: state.analysisComplexity,
         chordDetectionMode: state.chordDetectionMode,
-        chordAnalysisEngine: state.chordAnalysisEngine,
+
         selectedMidiOutput: state.selectedMidiOutput,
         showPlayerWidget: state.showPlayerWidget,
         showAnalysisWidget: state.showAnalysisWidget,

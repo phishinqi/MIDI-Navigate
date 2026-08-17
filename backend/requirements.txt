@@ -1,0 +1,9 @@
+fastapi>=0.100.0
+uvicorn>=0.20.0
+python-multipart
+mido>=1.2.10
+colorama
+sf2utils>=1.0.0
+audioop-lts>=0.2.0; python_version >= '3.13'
+# musicpy is likely installed via git or other means if not in pypi, but assuming pypi for now if standard
+musicpy

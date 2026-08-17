@@ -12,8 +12,7 @@ const AnalysisSettings = () => {
     const setAnalysisSensitivity = useStore(state => state.setAnalysisSensitivity);
     const analysisComplexity = useStore(state => state.analysisComplexity);
     const setAnalysisComplexity = useStore(state => state.setAnalysisComplexity);
-    const chordAnalysisEngine = useStore(state => state.chordAnalysisEngine);
-    const setChordAnalysisEngine = useStore(state => state.setChordAnalysisEngine);
+
 
     // 辅助函数：获取灵敏度的显示文本
     const getSensitivityLabel = (val) => {
@@ -49,32 +48,7 @@ const AnalysisSettings = () => {
 
 
 
-            <div className="flex flex-col gap-3 bg-white/5 p-3 rounded-lg border border-white/5">
-                <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                        <span className="text-sm font-bold flex items-center gap-2">
-                            <Gauge size={14} className={chordAnalysisEngine === 'experimental' ? "text-purple-400" : "text-gray-400"} />
-                            {t('analysis_settings.engine_mode', { defaultValue: 'Chord Engine' })}
-                        </span>
-                        <span className="text-[10px] text-white/40 mt-0.5">
-                            {chordAnalysisEngine === 'experimental'
-                                ? t('analysis_settings.engine_desc.experimental', { defaultValue: "Experimental (chordAnalyzer.ts): Structure-based..." })
-                                : t('analysis_settings.engine_desc.legacy', { defaultValue: "Legacy (chordNameFinder.ts): Pattern-based..." })}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-sans uppercase tracking-wider ${chordAnalysisEngine === 'legacy' ? 'text-white' : 'text-white/30'}`}>Legacy</span>
-                        <Switch.Root
-                            className={`w-10 h-6 rounded-full relative transition-colors duration-300 cursor-pointer ${chordAnalysisEngine === 'experimental' ? 'bg-purple-500/20 border border-purple-500/50' : 'bg-white/10 border border-white/10'}`}
-                            checked={chordAnalysisEngine === 'experimental'}
-                            onCheckedChange={(checked) => setChordAnalysisEngine(checked ? 'experimental' : 'legacy')}
-                        >
-                            <Switch.Thumb className={`block w-4 h-4 bg-white rounded-full shadow transition-transform duration-300 translate-x-1 will-change-transform ${chordAnalysisEngine === 'experimental' ? 'translate-x-5' : 'translate-x-1'}`} />
-                        </Switch.Root>
-                        <span className={`text-[9px] font-sans uppercase tracking-wider ${chordAnalysisEngine === 'experimental' ? 'text-purple-400' : 'text-white/30'}`}>New</span>
-                    </div>
-                </div>
-            </div>
+
 
             <p className="text-[10px] opacity-40 text-right mt-1">
                 {t('analysis_settings.tip', { defaultValue: "Tip: Click 'Apply Analysis Changes' in Mixer tab to take effect." })}

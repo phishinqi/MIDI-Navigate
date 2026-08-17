@@ -80,10 +80,14 @@
       "no_devices": "No Devices"
     },
     "sound_source": "Sound Source (SF2)",
-    "upload_help": "Upload a .sf2 file to replace default sounds. Large files may take time to load.",
+    "upload_help": "Upload a .sf2 file to replace default sounds. Large files may take time.",
     "load_file": "Load .sf2 File",
     "change_file": "Change SF2 File (Loaded)",
-    "reset": "Reset"
+    "reset": "Reset",
+    "uploading_large": "Large file >50MB. Uploading to backend...",
+    "processing": "Processing SoundFont...",
+    "uploading": "Uploading SF2...",
+    "large_file_wait": "Large files may take a moment to parse."
   },
   "canvas_appearance": {
     "title": "Canvas Appearance",

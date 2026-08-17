@@ -77,6 +77,12 @@ function App() {
             getAudioEngine().seek(newTime);
           }
           break;
+        case 'KeyE':
+          if (midiData) {
+            e.preventDefault();
+            useStore.getState().toggleExportMenu();
+          }
+          break;
         default: break;
       }
     };

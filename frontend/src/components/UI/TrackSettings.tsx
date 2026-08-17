@@ -49,8 +49,8 @@ const TrackSettings: React.FC<TrackSettingsProps> = ({ onClose, isLight }) => {
   const tabs = ['mixer', 'audio', 'interface', 'grid', 'debug', 'help'];
 
   return (
-    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 animate-in fade-in duration-200">
-      <div className={`w-[600px] border rounded-xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden ${modalBg}`}>
+    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 animate-in fade-in duration-200 p-4">
+      <div className={`w-full max-w-2xl border rounded-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden ${modalBg}`}>
 
         {/* HEADER */}
         <div className={`flex flex-col border-b ${headerBg}`}>

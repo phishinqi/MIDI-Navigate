@@ -107,7 +107,7 @@ class AudioEngine {
     this.refreshVolumes();
   }
 
-  loadMidi(midiData) {
+  async loadMidi(midiData) {
     this.stop();
     this.cleanup();
     if (!midiData) return;
@@ -124,8 +124,15 @@ class AudioEngine {
 
     this.trackChannels = new Array(midiData.tracks.length).fill(0);
     this.cachedInstrumentCodes = new Array(midiData.tracks.length).fill(0);
+
+    // Pre-allocate arrays to ensure index stability with async loading
+    this.synths = new Array(midiData.tracks.length).fill(null);
+    this.parts = new Array(midiData.tracks.length).fill(null);
+    this.ccParts = [];
+
     let melodyChannelPtr = 0;
 
+    // Loop 1: Sync cleanup and channel assignment
     midiData.tracks.forEach((track, i) => {
       this.cachedInstrumentCodes[i] = track.instrument.number;
       if (track.instrument.percussion) {
@@ -139,7 +146,8 @@ class AudioEngine {
 
     this.resendProgramChanges();
 
-    midiData.tracks.forEach((track, trackIndex) => {
+    // Loop 2: Async loading of instruments
+    await Promise.all(midiData.tracks.map(async (track, trackIndex) => {
       // Optimize CC Handling: Consolidate events for Tone.Part efficiency
       if (track.controlChanges) {
         const combinedCCs = [];
@@ -175,7 +183,11 @@ class AudioEngine {
         }
       }
 
-      if (track.notes.length === 0) { this.synths.push(null); this.parts.push(null); return; }
+      if (track.notes.length === 0) {
+        this.synths[trackIndex] = null;
+        this.parts[trackIndex] = null;
+        return;
+      }
 
       const isSoundFontLoaded = useStore.getState().isSoundFontLoaded;
       let synth = null;
@@ -185,9 +197,11 @@ class AudioEngine {
         try {
           const program = (track.instrument && track.instrument.number) || 0;
           const isPercussion = !!track.instrument.percussion;
-          const options = SoundFontAdapter.getSamplerOptions(program, isPercussion, Tone.context, uniqueNotes);
+          // Updated to await async call
+          const options = await SoundFontAdapter.getSamplerOptions(program, isPercussion, Tone.context, uniqueNotes);
 
           if (options && options.urls && Object.keys(options.urls).length > 0) {
+            // We use onload to track loading state if needed, but for now we trust Tone.loaded() or error handling
             synth = new Tone.Sampler(options).toDestination();
           }
         } catch (e) {
@@ -204,12 +218,11 @@ class AudioEngine {
 
       if (synth) {
         synth.volume.value = this.baseVolume;
-        this.synths.push(synth);
+        this.synths[trackIndex] = synth; // Assign by index
       } else {
         // Fallback safety
-        this.synths.push(null);
+        this.synths[trackIndex] = null;
       }
-
 
       const notes = track.notes.map(note => ({
         time: Math.max(0, note.time),
@@ -227,7 +240,13 @@ class AudioEngine {
         if (!shouldPlay) return;
 
         if (this.useInternal && synth && !synth.disposed) {
-          synth.triggerAttackRelease(value.note, value.duration, time, value.velocity);
+          try {
+            synth.triggerAttackRelease(value.note, value.duration, time, value.velocity);
+          } catch (e) {
+            // Suppress buffer not loaded error to prevent crash
+            if (e && e.message && e.message.includes('buffer')) return;
+            console.warn("[AudioEngine] Playback Error:", e);
+          }
         }
 
         if (this.midiOutPort) {
@@ -238,10 +257,14 @@ class AudioEngine {
         }
       }, notes).start(0);
 
-      this.parts.push(part);
-    });
+      this.parts[trackIndex] = part; // Assign by index
+    }));
+
+    // Optional: await Tone.loaded(); 
+    // Wait for samples to start loading at least
+
     this.isLoaded = true;
-    console.log(`[AudioEngine] Loaded.`);
+    console.log(`[AudioEngine] Loaded (Async).`);
   }
 
   play() {

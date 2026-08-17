@@ -1,4 +1,3 @@
-
 import { SoundFont2 } from 'soundfont2';
 import * as Tone from 'tone';
 
@@ -10,18 +9,35 @@ const midiToNoteName = (midi: number): string => {
 export class SoundFontAdapter {
     static sf: SoundFont2 | null = null;
     static cachedBuffers: Map<string, AudioBuffer> = new Map(); // key: "sampleName_originalPitch"
+    static isRemoteMode: boolean = false;
+    static remoteBaseUrl: string = "http://localhost:8080/api/v1/sf2";
 
     static async load(arrayBuffer: ArrayBuffer) {
+        console.log(`[SF2Adapter] maintain SF2 load... Buffer size: ${arrayBuffer.byteLength}`);
+        this.isRemoteMode = false;
         try {
             // soundfont2 expects Uint8Array
-            this.sf = new SoundFont2(new Uint8Array(arrayBuffer));
-            console.log("SF2 Loaded", this.sf);
+            const uint8 = new Uint8Array(arrayBuffer);
+            console.log("[SF2Adapter] Parsing SF2...");
+            this.sf = new SoundFont2(uint8);
+            console.log("[SF2Adapter] SF2 Parsed:", this.sf);
+
+            if (!this.sf) throw new Error("SF2 parser returned null/undefined");
+
             this.cachedBuffers.clear();
+            console.log("[SF2Adapter] Cache cleared. Ready.");
             return true;
         } catch (e) {
-            console.error("Failed to load SF2", e);
+            console.error("[SF2Adapter] Failed to load SF2:", e);
             return false;
         }
+    }
+
+    static enableRemoteMode() {
+        this.isRemoteMode = true;
+        this.sf = null; // Clear local SF structure
+        this.cachedBuffers.clear();
+        console.log("[SF2Adapter] Remote Mode Enabled");
     }
 
     // Helper to decode Int16 to Float32 AudioBuffer
@@ -51,13 +67,86 @@ export class SoundFontAdapter {
     }
 
     /**
+     * Preloads notes from backend for Offline Rendering or Playback.
+     */
+    static async preloadNotes(notes: number[], program: number, bank: number, context: any = Tone.context): Promise<void> {
+        if (!this.isRemoteMode) return;
+
+        console.log(`[SF2Adapter] Preloading ${notes.length} notes from remote. Prog: ${program}, Bank: ${bank}`);
+
+        // Deduplicate notes
+        const uniqueNotes = [...new Set(notes)];
+
+        await Promise.all(uniqueNotes.map(async (note) => {
+            const key = `remote_${bank}_${program}_${note}`;
+            if (this.cachedBuffers.has(key)) return;
+
+            try {
+                const response = await fetch(`${this.remoteBaseUrl}/sample?bank=${bank}&program=${program}&note=${note}`);
+                if (!response.ok) return; // Skip if not found
+
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await context.decodeAudioData(arrayBuffer);
+                this.cachedBuffers.set(key, audioBuffer);
+            } catch (e) {
+                console.warn(`[SF2Adapter] Failed to fetch sample for note ${note}:`, e);
+            }
+        }));
+    }
+
+    /**
      * Returns options for Tone.Sampler
      * @param program MIDI Program Number (0-127)
      * @param isPercussion Whether this is a drum track (Bank 128)
      * @param context AudioContext (usually Tone.context, or OfflineContext)
      * @param notesOptional Optional array of MIDI notes to optimize loading
      */
-    static getSamplerOptions(program: number, isPercussion: boolean, context: any = Tone.context, notesOptional?: number[]): Partial<Tone.SamplerOptions> {
+    /**
+     * Returns options for Tone.Sampler
+     * @param program MIDI Program Number (0-127)
+     * @param isPercussion Whether this is a drum track (Bank 128)
+     * @param context AudioContext (usually Tone.context, or OfflineContext)
+     * @param notesOptional Optional array of MIDI notes to optimize loading
+     */
+    static async getSamplerOptions(program: number, isPercussion: boolean, context: any = Tone.context, notesOptional?: number[]): Promise<Partial<Tone.SamplerOptions>> {
+        // REMOTE MODE LOGIC
+        if (this.isRemoteMode) {
+            const urls: Record<string, AudioBuffer | string> = {};
+            const bank = isPercussion ? 128 : 0;
+
+            try {
+                // Fetch mapping from backend to ensure correct pitch/root keys
+                const mapRes = await fetch(`${this.remoteBaseUrl}/map?bank=${bank}&program=${program}`);
+                const mapData = await mapRes.json();
+
+                if (mapData.status === "ok" && mapData.map) {
+                    for (const entry of mapData.map) {
+                        // entry: { root_key, trigger_note, name }
+                        // We map the ROOT KEY to the URL.
+                        // The URL asks for the TRIGGER NOTE (so backend finds the sample).
+                        // Tone.Sampler sees "C4" -> URL(Trigger=C4_Sample_Trigger)
+                        // If Tone plays D4, it shifts C4.
+
+                        const rootName = midiToNoteName(entry.root_key);
+                        // Add root mapping only if not present (or overwrite, doesn't matter for duplicates)
+                        if (!urls[rootName]) {
+                            urls[rootName] = `${this.remoteBaseUrl}/sample?bank=${bank}&program=${program}&note=${entry.trigger_note}`;
+                        }
+                    }
+                } else {
+                    console.warn("[SF2Adapter] Failed to fetch sample map or empty.");
+                }
+
+            } catch (e) {
+                console.error("[SF2Adapter] Map fetch error:", e);
+            }
+
+            return {
+                urls,
+                baseUrl: ""
+            };
+        }
+
         if (!this.sf) return {};
 
         const urls: Record<string, AudioBuffer> = {};

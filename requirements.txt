@@ -9,3 +9,6 @@ scipy==1.16.3
 uvicorn==0.38.0
 colorama
 python-multipart
+sf2utils
+audioop-lts
+pyinstaller

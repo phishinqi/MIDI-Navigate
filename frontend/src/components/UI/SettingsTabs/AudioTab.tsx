@@ -13,6 +13,8 @@ const AudioTab = () => {
     const useInternalAudio = useStore(state => state.useInternalAudio);
     const toggleInternalAudio = useStore(state => state.toggleInternalAudio);
     const isSoundFontLoaded = useStore(state => state.isSoundFontLoaded);
+    const isUploadingSoundFont = useStore(state => state.isUploadingSoundFont);
+    const uploadProgress = useStore(state => state.uploadProgress);
 
     const toggleBgOn = 'bg-midi-accent';
     const toggleBgOff = 'bg-white/10';
@@ -80,32 +82,60 @@ const AudioTab = () => {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        <div className="text-xs text-white/40">
-                            {t('audio_io.upload_help', { defaultValue: 'Upload a .sf2 file to replace default sounds. Large files may take time to load.' })}
-                        </div>
-                        <div className="flex gap-2 items-center">
-                            <label className="flex-1 flex items-center justify-center p-3 rounded bg-black/20 border border-white/10 hover:bg-white/5 cursor-pointer text-sm transition-colors">
-                                <span>{isSoundFontLoaded ? t('audio_io.change_file', { defaultValue: 'Change SF2 File (Loaded)' }) : t('audio_io.load_file', { defaultValue: 'Load .sf2 File' })}</span>
-                                <input
-                                    type="file"
-                                    accept=".sf2"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0]) {
-                                            useStore.getState().loadSoundFont(e.target.files[0]);
+                        {isUploadingSoundFont ? (
+                            <div className="space-y-2 p-3 rounded bg-white/5 border border-white/10 animate-pulse">
+                                <div className="flex justify-between text-xs text-white/70">
+                                    <span>
+                                        {uploadProgress >= 100
+                                            ? t('audio_io.processing', { defaultValue: 'Processing SoundFont...' })
+                                            : t('audio_io.uploading', { defaultValue: 'Uploading SF2...' })
                                         }
-                                    }}
-                                />
-                            </label>
-                            {isSoundFontLoaded && (
-                                <button
-                                    onClick={() => useStore.getState().resetSoundFont()}
-                                    className="px-4 py-3 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-sm hover:bg-red-500/30 transition-colors"
-                                >
-                                    {t('audio_io.reset', { defaultValue: 'Reset' })}
-                                </button>
-                            )}
-                        </div>
+                                    </span>
+                                    <span>{uploadProgress}%</span>
+                                </div>
+                                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full transition-all duration-300 ease-out ${uploadProgress >= 100 ? 'bg-green-400' : 'bg-midi-accent'}`}
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                                {uploadProgress >= 100 && (
+                                    <div className="text-[10px] text-white/30 text-center pt-1">
+                                        {t('audio_io.large_file_wait', { defaultValue: 'Large files may take a moment to parse.' })}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-xs text-white/40">
+                                    {t('audio_io.upload_help', { defaultValue: 'Upload a .sf2 file to replace default sounds. Large files may take time to load.' })}
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <label className="flex-1 flex items-center justify-center p-3 rounded bg-black/20 border border-white/10 hover:bg-white/5 cursor-pointer text-sm transition-colors">
+                                        <span>{isSoundFontLoaded ? t('audio_io.change_file', { defaultValue: 'Change SF2 File (Loaded)' }) : t('audio_io.load_file', { defaultValue: 'Load .sf2 File' })}</span>
+                                        <input
+                                            type="file"
+                                            accept=".sf2"
+                                            className="hidden"
+                                            disabled={isUploadingSoundFont}
+                                            onChange={(e) => {
+                                                if (e.target.files && e.target.files[0]) {
+                                                    useStore.getState().loadSoundFont(e.target.files[0]);
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                    {isSoundFontLoaded && (
+                                        <button
+                                            onClick={() => useStore.getState().resetSoundFont()}
+                                            className="px-4 py-3 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-sm hover:bg-red-500/30 transition-colors"
+                                        >
+                                            {t('audio_io.reset', { defaultValue: 'Reset' })}
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

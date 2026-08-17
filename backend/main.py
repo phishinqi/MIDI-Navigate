@@ -2,6 +2,17 @@
 
 import os
 import sys
+
+# --- Compatibility Shim for Python 3.13+ (missing audioop) ---
+try:
+    import audioop
+except ImportError:
+    try:
+        import audioop_lts as audioop
+        sys.modules['audioop'] = audioop
+        print(" [Shim] 'audioop' module patched via 'audioop_lts'")
+    except ImportError:
+        print(" [Warning] 'audioop' module missing. SF2 functionality may crash.")
 import webbrowser
 import logging
 import colorama
@@ -14,8 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 
 from app.core.config import settings
-from app.api import endpoints
-
+from app.api import endpoints, sf2_routes
 
 # --- 1. Paths & Configuration ---
 def get_resource_path(relative_path):
@@ -89,6 +99,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # --- 5. API Routes ---
 app.include_router(endpoints.router, prefix=settings.API_V1_STR)
+app.include_router(sf2_routes.router, prefix=f"{settings.API_V1_STR}/sf2", tags=["sf2"])
 
 # --- 6. Static Files & Frontend Hosting [Final Fix] ---
 

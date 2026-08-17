@@ -5,10 +5,11 @@ import { getAudioEngine } from '@/audio/AudioEngine';
 
 const AudioEngineManager = () => {
   const midiData = useStore((state) => state.midiData);
+  const isSoundFontLoaded = useStore((state) => state.isSoundFontLoaded);
 
   useEffect(() => {
     // Manage AudioEngine lifecycle
-    console.log('[AudioEngineManager] MIDI data changed. Reloading engine.');
+    console.log('[AudioEngineManager] MIDI data or SoundFont changed. Reloading engine.');
 
     getAudioEngine().cleanup();
 
@@ -20,7 +21,7 @@ const AudioEngineManager = () => {
       console.log('[AudioEngineManager] Cleaning up on component unmount.');
       getAudioEngine().cleanup();
     };
-  }, [midiData]);
+  }, [midiData, isSoundFontLoaded]);
 
   return null;
 };

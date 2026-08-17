@@ -1,5 +1,5 @@
 import { Chord, Note } from "@tonaljs/tonal";
-import { detect } from './chordAnalyzer';
+
 import { detectChord } from './chordNameFinder';
 
 
@@ -43,34 +43,19 @@ export const areNotesEqual = (prevNotes: any[], nextNotes: any[]) => {
   return true;
 };
 
-export const detectLocalChord = (midiNumbers: number[], engine: 'legacy' | 'experimental' = 'legacy') => {
+export const detectLocalChord = (midiNumbers: number[]) => {
   if (!midiNumbers || midiNumbers.length < 2) return { name: "---", confidence: 0, aliases: [] };
-  if (engine === 'experimental') {
-    const results = detectChord(midiNumbers);
-    if (!results || results.length === 0) return { name: "---", confidence: 0, aliases: [] };
 
-    const best = results[0];
-    const aliases = results.slice(1).map(r => r.name);
-
-    return {
-      name: best.name,
-      confidence: best.confidence,
-      aliases: aliases,
-      quality: best.quality
-    };
-  }
-
-  const results = detect(midiNumbers, { mode: 'loose', maxResults: 5 });
-
+  const results = detectChord(midiNumbers);
   if (!results || results.length === 0) return { name: "---", confidence: 0, aliases: [] };
 
   const best = results[0];
-  const aliases = results.slice(1).map(r => r.formatted);
+  const aliases = results.slice(1).map(r => r.name);
 
   return {
-    name: best.formatted,
+    name: best.name,
     confidence: best.confidence,
     aliases: aliases,
-    quality: best.chordType
+    quality: best.quality
   };
 };

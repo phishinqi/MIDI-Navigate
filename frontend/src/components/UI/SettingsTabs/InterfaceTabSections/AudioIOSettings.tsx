@@ -95,6 +95,8 @@ const AudioIOSettings = () => {
                                     onChange={(e) => {
                                         if (e.target.files && e.target.files[0]) {
                                             useStore.getState().loadSoundFont(e.target.files[0]);
+                                            // Reset input so same file can be selected again if needed
+                                            e.target.value = '';
                                         }
                                     }}
                                 />
