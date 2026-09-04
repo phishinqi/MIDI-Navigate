@@ -49,6 +49,24 @@ MIDI-Navigate 是一个现代化的 MIDI 可视化工具，结合了 React 前�
 *   Node.js 18+
 *   Python 3.8+
 
+### Windows 快速启动
+
+项目根目录的 `start.bat` 会在首次启动时自动创建本地 Conda 环境 `.panel-env`、安装后端依赖及前端依赖，然后在两个独立的命令行窗口中分别启动后端和前端；后续启动会复用已安装的环境和依赖。
+
+首次使用前，请确保：
+
+*   已安装 Conda，且 `conda` 已加入 `PATH`（或从 Anaconda Prompt 运行）。
+*   已安装 Node.js 18+，且 `npm` 已加入 `PATH`。
+*   首次下载 Conda、Python、PyPI 与 npm 依赖时可正常访问网络；首次启动可能需要数分钟。
+
+随后双击 `start.bat`，或在项目根目录运行：
+
+```bat
+start.bat
+```
+
+前端地址为 `http://127.0.0.1:5173/frontend/index.html`。关闭任一启动后的命令行窗口即可停止对应服务。
+
 ### 1. 后端设置 (Backend)
 
 进入 `backend` 目录并创建虚拟环境：
